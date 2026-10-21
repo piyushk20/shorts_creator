@@ -45,6 +45,7 @@ Thumbs.db
 remotiom/
 scratch/claude-remotion-skill/
 scratch/vox-director/
+scratch/public-apis/
 
 # Remotion local builds and temporary test renders
 vox_remotion/out/

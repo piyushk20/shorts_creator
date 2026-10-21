@@ -8,6 +8,7 @@ from backend.app.api.projects import router as projects_router
 from backend.app.api.trends import router as trends_router
 from backend.app.api.tools import router as tools_router
 from backend.app.api.vox import router as vox_router
+from backend.app.api.media import router as media_router
 
 # Auto create database tables
 Base.metadata.create_all(bind=engine)
@@ -52,6 +53,7 @@ app.include_router(projects_router)
 app.include_router(trends_router)
 app.include_router(tools_router)
 app.include_router(vox_router)
+app.include_router(media_router)
 
 @app.get("/health")
 def health():

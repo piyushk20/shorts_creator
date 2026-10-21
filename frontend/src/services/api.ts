@@ -295,6 +295,41 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to preview Vox prompt');
     return res.json();
+  },
+
+  async getMediaSources(): Promise<any> {
+    const res = await fetch('/api/media/sources');
+    if (!res.ok) throw new Error('Failed to fetch media sources');
+    return res.json();
+  },
+
+  async searchPublicMedia(query: string, provider: string = 'all', mediaType: string = 'all', limit: number = 6): Promise<any> {
+    const params = new URLSearchParams({ query, provider, media_type: mediaType, limit: limit.toString() });
+    const res = await fetch(`/api/media/search-public?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to search public media');
+    return res.json();
+  },
+
+  async generateChartGraphic(payload: {
+    chart_type?: string;
+    title?: string;
+    labels?: string[];
+    datasets?: any[];
+    theme?: string;
+    width?: number;
+    height?: number;
+  }): Promise<any> {
+    const res = await fetch('/api/media/chart-graphic', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to generate chart graphic');
+    return res.json();
+  },
+
+  getVectorIconUrl(name: string, collection: string = 'lucide'): string {
+    return `/api/media/icon?name=${encodeURIComponent(name)}&collection=${encodeURIComponent(collection)}`;
   }
 };
 

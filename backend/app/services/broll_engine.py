@@ -7,6 +7,7 @@ from typing import List, Dict, Any, Optional
 from backend.app.core.config import settings
 from backend.app.schemas.render import AssetCandidate
 from backend.app.services.scrapling_crawler import scrapling_crawler
+from backend.app.services.public_media_engine import public_media_engine
 
 from backend.app.core.security import is_safe_url, sanitize_safe_id
 
@@ -149,12 +150,25 @@ class BRollEngine:
         except Exception as e:
             print(f"[BRollEngine] Scrapling crawler search failed: {e}")
 
-        # 4. Fallback to local verified synthetic HD clips if needed
+        # 4. Public Media APIs (Wikimedia Commons Archival + NASA Space/Science/Tech)
+        try:
+            wiki_results = public_media_engine.search_wikimedia(queries, limit=4)
+            candidates.extend(wiki_results)
+
+            # Query NASA if query relates to science, tech, space, or engineering
+            joined_q = " ".join(queries).lower()
+            if any(term in joined_q for term in ["space", "nasa", "earth", "rocket", "tech", "science", "physics", "computer", "ai", "data"]):
+                nasa_results = public_media_engine.search_nasa(queries, limit=3)
+                candidates.extend(nasa_results)
+        except Exception as e:
+            print(f"[BRollEngine] Public media search failed: {e}")
+
+        # 5. Fallback to local verified synthetic HD clips if needed
         if len(candidates) < 2:
             local_candidates = self._generate_or_get_local_candidates(queries, aspect_ratio, min_duration)
             candidates.extend(local_candidates)
 
-        # 5. Rank and score candidates
+        # 6. Rank and score candidates
         ranked_candidates = self._rank_candidates(candidates, queries, min_duration)
         return ranked_candidates[:limit]
 
