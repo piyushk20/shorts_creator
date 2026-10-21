@@ -29,8 +29,8 @@ def finalize():
     shutil.copy(src_mp4, dest_mp4)
     print(f"Copied final MP4 to {dest_mp4} ({os.path.getsize(dest_mp4)} bytes)")
 
-    # Extract 6 key verification frames
-    check_times = [1.5, 11.0, 20.0, 30.0, 40.0, 50.0]
+    # Extract key verification frames including the final social CTA frame
+    check_times = [1.5, 11.0, 20.0, 30.0, 40.0, 52.5]
     for i, t in enumerate(check_times):
         f_path = os.path.join(frames_dir, f"beat_{i+1}_check.jpg")
         subprocess.run([
@@ -38,6 +38,14 @@ def finalize():
             "-vframes", "1", "-q:v", "2", f_path
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print(f"Extracted verification frame for beat {i+1}: {f_path}")
+
+    # Extract explicit last-second frame
+    last_frame_path = os.path.join(frames_dir, "final_frame_cta.jpg")
+    subprocess.run([
+        "ffmpeg", "-y", "-sseof", "-1", "-i", dest_mp4,
+        "-vframes", "1", "-q:v", "2", last_frame_path
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print(f"Extracted final second CTA frame: {last_frame_path}")
 
     # Generate thumbnail
     dest_thumb = os.path.join(out_dir, "thumbnail.jpg")

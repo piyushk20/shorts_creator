@@ -36,6 +36,10 @@ export const Beat6_OwnMachine: React.FC<BeatSceneProps> = ({
   // Entrance 4: Archival Asset (stagger frame 26)
   const pAsset = spring({ frame: frame - 26, fps, config: theme.spring.smooth });
 
+  // Entrance 5: Social Media CTA (Staggers in at frame 110, expands through last frame)
+  const pSocial = spring({ frame: frame - 110, fps, config: theme.spring.bouncy });
+  const pSocialPulse = frame > 200 ? Math.sin((frame - 200) / 4) * 2 : 0;
+
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <BgPaper accentTint={theme.colors.emeraldGreen} />
@@ -148,7 +152,7 @@ export const Beat6_OwnMachine: React.FC<BeatSceneProps> = ({
           videoSrc={brollVideo}
           tilt={1.5}
           width={920}
-          height={610}
+          height={540}
           label="THE COMPOUNDING SUMMIT / AMERICAN INNOVATION"
         />
       </div>
@@ -179,8 +183,118 @@ export const Beat6_OwnMachine: React.FC<BeatSceneProps> = ({
         <span style={{ fontSize: 20, fontFamily: theme.fonts.mono }}>BUY & HOLD THE TOTAL MARKET</span>
       </div>
 
-      {/* Word-level captions anchored in bottom safe zone */}
-      <SafeZoneCaptions tokens={tokens} />
+      {/* On-Screen Social Media Handle & CTA Card (Prominent through final frame) */}
+      {frame >= 100 && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: frame > 220 ? 250 : 340,
+            left: 70,
+            right: 70,
+            backgroundColor: "#FFFFFF",
+            padding: "26px 36px",
+            borderRadius: 14,
+            boxShadow: "0 22px 50px rgba(0,0,0,0.25), 0 6px 16px rgba(0,0,0,0.15)",
+            border: "3.5px solid #0F172A",
+            opacity: pSocial,
+            transform: `translateY(${interpolate(pSocial, [0, 1], [60, 0])}px) rotate(${interpolate(pSocial, [0, 1], [-1.5, 0.5])}deg) scale(${frame > 220 ? 1.03 : 1})`,
+            zIndex: 50,
+            transition: "all 0.3s ease-out",
+          }}
+        >
+          <WashiTape top={-12} left={35} rotation={-4} width={100} />
+          <WashiTape top={-12} right={45} rotation={3} width={105} />
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
+              {/* Facebook Icon */}
+              <div
+                style={{
+                  width: 68,
+                  height: 68,
+                  borderRadius: "50%",
+                  backgroundColor: "#1877F2",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 6px 18px rgba(24, 119, 242, 0.45)",
+                  flexShrink: 0,
+                }}
+              >
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="#FFFFFF">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                </svg>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontFamily: theme.fonts.display,
+                    fontSize: 22,
+                    fontWeight: 900,
+                    color: "#E11D48",
+                    letterSpacing: 2.5,
+                    textTransform: "uppercase",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span>FOLLOW AND LIKE FOR MORE</span>
+                  <span style={{ fontSize: 22 }}>👍</span>
+                </div>
+                <div
+                  style={{
+                    fontFamily: theme.fonts.mono,
+                    fontSize: 34,
+                    fontWeight: 900,
+                    color: "#0F172A",
+                    letterSpacing: -0.5,
+                    marginTop: 6,
+                  }}
+                >
+                  facebook :{" "}
+                  <span
+                    style={{
+                      color: "#1877F2",
+                      backgroundColor: "rgba(24, 119, 242, 0.08)",
+                      padding: "3px 14px",
+                      borderRadius: 8,
+                      border: "2px solid rgba(24, 119, 242, 0.3)",
+                      display: "inline-block",
+                    }}
+                  >
+                    Shelf Wisdom
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Follow Button Pill */}
+            <div
+              style={{
+                backgroundColor: "#1877F2",
+                color: "#FFFFFF",
+                fontFamily: theme.fonts.display,
+                fontSize: 20,
+                fontWeight: 900,
+                letterSpacing: 1.5,
+                padding: "14px 28px",
+                borderRadius: 30,
+                boxShadow: "0 8px 20px rgba(24, 119, 242, 0.45)",
+                textTransform: "uppercase",
+                transform: `scale(${1 + pSocialPulse * 0.01})`,
+                flexShrink: 0,
+              }}
+            >
+              + FOLLOW
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Word-level captions anchored in bottom safe zone (fades out after narration ends) */}
+      {frame <= 228 && <SafeZoneCaptions tokens={tokens} />}
     </AbsoluteFill>
   );
 };
