@@ -204,10 +204,11 @@ export const api = {
     return res.json();
   },
 
-  async discoverTrends(category: string = 'all', query?: string): Promise<{ category: string; query?: string; count: number; topics: TrendingTopic[] }> {
+  async discoverTrends(category: string = 'all', query?: string, refresh: boolean = true): Promise<{ category: string; query?: string; count: number; topics: TrendingTopic[] }> {
     const params = new URLSearchParams();
     if (category) params.append('category', category);
     if (query) params.append('query', query);
+    if (refresh) params.append('refresh', 'true');
     const res = await fetch(`/api/trends/discover?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to discover trending topics');
     return res.json();
@@ -235,6 +236,65 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to open project folder');
     return res.json();
+  },
+
+  async scoreHook(hook: string): Promise<any> {
+    const res = await fetch('/api/tools/hook-score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hook }),
+    });
+    if (!res.ok) throw new Error('Failed to score hook');
+    return res.json();
+  },
+
+  async lintPackage(title: string, thumbnailText?: string): Promise<any> {
+    const res = await fetch('/api/tools/package-lint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, thumbnail_text: thumbnailText }),
+    });
+    if (!res.ok) throw new Error('Failed to lint package');
+    return res.json();
+  },
+
+  async getVoxThemes(): Promise<{ themes: VoxTheme[] }> {
+    const res = await fetch('/api/vox/themes');
+    if (!res.ok) throw new Error('Failed to fetch Vox themes');
+    return res.json();
+  },
+
+  async getVoxArcs(): Promise<{ arcs: VoxArc[] }> {
+    const res = await fetch('/api/vox/arcs');
+    if (!res.ok) throw new Error('Failed to fetch Vox arcs');
+    return res.json();
+  },
+
+  async draftVoxProject(params: {
+    topic: string;
+    theme_id?: string;
+    arc_id?: string;
+    aspect_ratio?: string;
+    existing_script?: string;
+    target_duration?: number;
+  }): Promise<any> {
+    const res = await fetch('/api/vox/draft-project', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) throw new Error('Failed to draft Vox project');
+    return res.json();
+  },
+
+  async previewVoxPrompt(scene_description: string, headline_text: string, theme_id?: string, aspect_ratio?: string): Promise<any> {
+    const res = await fetch('/api/vox/preview-prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scene_description, headline_text, theme_id, aspect_ratio }),
+    });
+    if (!res.ok) throw new Error('Failed to preview Vox prompt');
+    return res.json();
   }
 };
 
@@ -260,5 +320,40 @@ export interface TrendingTopic {
   target_duration: number;
   aspect_ratio: string;
   platform: string;
+}
+
+export interface VoxTheme {
+  id: string;
+  name: string;
+  idiom: string;
+  palette: string;
+  bg_colors: string[];
+  accent_color: string;
+  secondary_color: string;
+  font_family: string;
+  font_heading: string;
+  type_style: string;
+  finish: string;
+  mood: string;
+  motion_style: string;
+  sample_headline: string;
+  tape_color: string;
+  paper_border: string;
+}
+
+export interface VoxArcBeat {
+  role: string;
+  name: string;
+  target_seconds: number;
+  shot_type: string;
+  camera: string;
+}
+
+export interface VoxArc {
+  id: string;
+  name: string;
+  description: string;
+  best_for: string[];
+  beats: VoxArcBeat[];
 }
 

@@ -14,6 +14,7 @@ CreatorFlow AI Studio is a production-oriented platform that transforms user top
 - **Composite Rendering Engine**: FFmpeg 7.1 compositing with aspect-ratio conformance (smart center crop to 1080×1920 or 1920×1080), 30fps H.264 video, burned subtitles, and dynamic audio ducking (-14dB background attenuation under narration).
 - **Automated Technical QA Gate**: Objective verification of container readability, target resolution, stereo AAC audio streams, duration delta matching, and safe margin bounds before marking `READY_FOR_REVIEW`.
 - **Complete Export Packaging**: One-click download of the final MP4, high-res cover thumbnail, `.srt` captions, `.vtt` captions, `timeline.json`, and `provenance_manifest.json` bundled in a production `.zip` package.
+- **YouTube Agent Optimization Suite**: Integrated from `Jakeschincariol/youtube-agent-skill`. 21-formula hook scoring (`hook_scorer.py` with weakest-link penalization), co-dependent Title + Thumbnail click package linter (`package_linter.py`), dead-air & restart transcript tightener (`deadair_detector.py`), YouTube-compliant chapters (`chapter_extractor.py`), audience retention diagnostics (`retention_analyzer.py`), and own-channel relative outlier discovery (`outlier_analyzer.py`).
 
 ---
 

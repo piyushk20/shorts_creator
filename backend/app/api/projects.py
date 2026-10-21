@@ -67,14 +67,33 @@ async def create_project(req: ProjectCreateRequest, db: Session = Depends(get_db
     elif req.aspect_ratio == "1:1":
         width, height = 1080, 1080
 
-    # Auto generate script using LLM Engine
-    script_data = await llm_engine.generate_script(
-        topic=req.topic or "Modern AI Breakthroughs",
-        target_duration=req.target_duration,
-        language=req.language,
-        platform=req.platform,
-        visual_style=req.visual_style
-    )
+    # Generate script using LLM Engine, Vox Explainer Engine, or parse existing script
+    if req.video_mode == "vox_explainer" or req.visual_style == "vox_paper_collage":
+        script_data = llm_engine.create_vox_explainer_script(
+            topic=req.topic or req.title or "System Dynamics Explainer",
+            theme_id=req.vox_theme or "swiss-modern",
+            arc_id=req.vox_arc or "how_it_works",
+            aspect_ratio=req.aspect_ratio,
+            existing_script=req.existing_script,
+            target_duration=req.target_duration
+        )
+    elif req.existing_script and req.existing_script.strip():
+        script_data = llm_engine.create_from_existing_script(
+            title=req.title or req.topic or "Custom Script Video",
+            script_text=req.existing_script.strip(),
+            target_duration=req.target_duration,
+            language=req.language,
+            platform=req.platform,
+            visual_style=req.visual_style
+        )
+    else:
+        script_data = await llm_engine.generate_script(
+            topic=req.topic or "Modern AI Breakthroughs",
+            target_duration=req.target_duration,
+            language=req.language,
+            platform=req.platform,
+            visual_style=req.visual_style
+        )
 
     project_title = req.title or script_data.title
 

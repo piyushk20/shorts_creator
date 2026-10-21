@@ -28,19 +28,29 @@ def get_categories():
 @router.get("/discover")
 def discover_trends(
     category: str = Query("all", description="Category ID to search (ai, sports, literature, politics, war, etc.)"),
-    query: Optional[str] = Query(None, description="Optional custom search query within the domain")
+    query: Optional[str] = Query(None, description="Optional custom search query within the domain"),
+    refresh: bool = Query(True, description="Whether to force-refresh trending topics before searching")
 ):
     """
     Return the top 5-6 highest-engagement stories/topics in the selected category.
+    Updates trending topics dynamically before returning results on every new search.
     Ranked strictly by verified real engagement (upvotes, HN points, Polymarket volume, YouTube views).
     """
-    topics = trend_discovery_service.get_trending_topics(category=category, custom_query=query)
+    # Always refresh on any new search query or when refresh flag is set
+    should_refresh = True if query or refresh else False
+    topics = trend_discovery_service.update_and_get_trending_topics(
+        category=category,
+        custom_query=query,
+        force_refresh=should_refresh
+    )
     return {
         "category": category,
         "query": query,
+        "refreshed": True,
         "count": len(topics),
         "topics": topics
     }
+
 
 
 @router.post("/launch-project")

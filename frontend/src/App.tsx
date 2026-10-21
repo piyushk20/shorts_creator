@@ -11,8 +11,15 @@ export const App: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [createInitialMode, setCreateInitialMode] = useState<'trends' | 'idea' | 'script' | 'vox'>('trends');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const handleOpenCreate = (mode: 'trends' | 'idea' | 'script' | 'vox' = 'trends') => {
+    setSelectedProject(null);
+    setCreateInitialMode(mode);
+    setIsCreating(true);
+  };
 
   const loadProjects = async () => {
     try {
@@ -93,7 +100,7 @@ export const App: React.FC = () => {
   return (
     <div className="app-container">
       <Navbar 
-        onOpenCreate={() => { setSelectedProject(null); setIsCreating(true); }}
+        onOpenCreate={handleOpenCreate}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onGoHome={() => { setSelectedProject(null); setIsCreating(false); loadProjects(); }}
       />
@@ -107,6 +114,7 @@ export const App: React.FC = () => {
           />
         ) : isCreating ? (
           <CreateWizard 
+            initialMode={createInitialMode}
             onProjectCreated={handleProjectCreated}
             onCancel={() => setIsCreating(false)}
           />
@@ -114,7 +122,7 @@ export const App: React.FC = () => {
           <Dashboard 
             projects={projects}
             onSelectProject={handleSelectProject}
-            onOpenCreate={() => setIsCreating(true)}
+            onOpenCreate={handleOpenCreate}
             onQuickStart={handleQuickStart}
             onTrendStart={handleTrendStart}
           />

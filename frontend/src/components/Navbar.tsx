@@ -1,8 +1,8 @@
 import React from 'react';
-import { Film, PlusCircle, Settings, RefreshCw } from 'lucide-react';
+import { Film, PlusCircle, Settings, FileText, Scissors } from 'lucide-react';
 
 interface NavbarProps {
-  onOpenCreate: () => void;
+  onOpenCreate: (mode?: 'trends' | 'idea' | 'script' | 'vox') => void;
   onOpenSettings: () => void;
   onGoHome: () => void;
 }
@@ -21,9 +21,25 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCreate, onOpenSettings, on
           <Settings size={15} />
           <span>Providers & Engine</span>
         </button>
-        <button className="btn btn-primary" onClick={onOpenCreate}>
+        <button 
+          className="btn btn-secondary btn-sm" 
+          onClick={() => onOpenCreate('vox')}
+          style={{ borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
+        >
+          <Scissors size={15} color="#f59e0b" />
+          <span>Vox Explainer</span>
+        </button>
+        <button 
+          className="btn btn-secondary btn-sm" 
+          onClick={() => onOpenCreate('script')}
+          style={{ borderColor: 'rgba(16, 185, 129, 0.4)', color: '#34d399' }}
+        >
+          <FileText size={15} color="#10b981" />
+          <span>Provide Script</span>
+        </button>
+        <button className="btn btn-primary" onClick={() => onOpenCreate('trends')}>
           <PlusCircle size={16} />
-          <span>Create New Video</span>
+          <span>New Video</span>
         </button>
       </div>
     </header>

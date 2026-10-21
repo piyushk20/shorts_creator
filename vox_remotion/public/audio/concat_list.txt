@@ -1,0 +1,6 @@
+file 'C:/Users/HP/shortscreator/vox_remotion/public/audio/beat_1_narration.mp3'
+file 'C:/Users/HP/shortscreator/vox_remotion/public/audio/beat_2_narration.mp3'
+file 'C:/Users/HP/shortscreator/vox_remotion/public/audio/beat_3_narration.mp3'
+file 'C:/Users/HP/shortscreator/vox_remotion/public/audio/beat_4_narration.mp3'
+file 'C:/Users/HP/shortscreator/vox_remotion/public/audio/beat_5_narration.mp3'
+file 'C:/Users/HP/shortscreator/vox_remotion/public/audio/beat_6_narration.mp3'

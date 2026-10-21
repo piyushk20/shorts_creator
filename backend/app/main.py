@@ -6,6 +6,8 @@ from backend.app.core.config import settings
 from backend.app.core.database import engine, Base
 from backend.app.api.projects import router as projects_router
 from backend.app.api.trends import router as trends_router
+from backend.app.api.tools import router as tools_router
+from backend.app.api.vox import router as vox_router
 
 # Auto create database tables
 Base.metadata.create_all(bind=engine)
@@ -48,6 +50,8 @@ app.mount("/storage", StaticFiles(directory=settings.STORAGE_DIR), name="storage
 # Mount API
 app.include_router(projects_router)
 app.include_router(trends_router)
+app.include_router(tools_router)
+app.include_router(vox_router)
 
 @app.get("/health")
 def health():

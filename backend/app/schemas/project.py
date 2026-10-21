@@ -7,6 +7,9 @@ class ProjectCreateRequest(BaseModel):
     title: Optional[str] = None
     topic: Optional[str] = None
     existing_script: Optional[str] = None
+    video_mode: Optional[str] = "standard"  # standard, vox_explainer
+    vox_theme: Optional[str] = "swiss-modern"
+    vox_arc: Optional[str] = "how_it_works"
     platform: str = "youtube_shorts"  # youtube_shorts, instagram_reels, youtube_video
     aspect_ratio: str = "9:16"        # 9:16, 16:9, 1:1
     target_duration: int = 45         # seconds

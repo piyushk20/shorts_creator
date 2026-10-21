@@ -5,6 +5,8 @@ from typing import Dict, Any, List, Tuple, Optional
 from backend.app.core.config import settings
 from backend.app.schemas.scene import ScriptGenerationOutput, SceneSchema
 from backend.app.services.audio_engine import sanitize_narration_for_speech
+from backend.app.services.youtube_tools.hook_scorer import rank_hooks
+from backend.app.services.youtube_tools.package_linter import lint_package
 
 def parse_topic_metadata(topic: str) -> Tuple[str, Optional[str], Optional[str]]:
     """
@@ -329,6 +331,7 @@ class LLMEngine:
         """
         clean_title, provided_hook, provided_angle = parse_topic_metadata(topic)
         clean_topic = clean_title.strip().title() if clean_title else "The Hidden Truth"
+        scored_hook_details = None
 
         if language == "hi":
             hooks = [
@@ -411,17 +414,20 @@ class LLMEngine:
                 )
             ]
         else:
-            hooks = [
-                sanitize_narration_for_speech(provided_hook or f"Most people think they understand {clean_topic}, but here is the hidden truth."),
-                f"Stop scrolling! This 30-second secret about {clean_topic} will change your mindset.",
-                f"Here is why 99% of people get {clean_topic} completely wrong."
+            candidate_hooks = [
+                f"If you examine {clean_topic}, 90% of people make the same critical mistake. Here is what the top 10% do differently.",
+                f"You are probably approaching {clean_topic} completely backwards. Here is the exact reason it is costing you.",
+                f"Everyone says {clean_topic} takes years to master. You can actually see measurable results in 30 days.",
+                f"In the next 45 seconds you will learn the exact 3 principles of {clean_topic} that changed everything for me.",
+                sanitize_narration_for_speech(provided_hook or f"Here is the one counter-intuitive insight about {clean_topic} nobody talks about.")
             ]
-            rec_hook = hooks[0]
+            ranked_hooks = rank_hooks(candidate_hooks)
+            hooks = [h["hook"] for h in ranked_hooks]
+            rec_hook = ranked_hooks[0]["hook"] if ranked_hooks else candidate_hooks[0]
+            scored_hook_details = ranked_hooks
 
-            # Scene 1: Only the pure spoken hook sentence
-            scene_1_narration = sanitize_narration_for_speech(
-                provided_hook or f"Most people think they understand {clean_topic}, but here is the hidden truth you were never told."
-            )
+            # Scene 1: Only the pure spoken winning hook sentence
+            scene_1_narration = sanitize_narration_for_speech(rec_hook)
 
             # Scene 2: Core setup without ever speaking the word 'Angle:'
             if provided_angle:
@@ -517,13 +523,17 @@ class LLMEngine:
             ]
 
         full_script = " ".join([s.narration for s in scenes])
+        title = f"{clean_topic} Revealed"
+        package_audit = lint_package(title, "THE TRUTH")
         return ScriptGenerationOutput(
-            title=f"{clean_topic} Revealed",
+            title=title,
             hook_options=hooks,
             recommended_hook=rec_hook,
             full_script=full_script,
             target_duration_seconds=target_duration,
-            scenes=scenes
+            scenes=scenes,
+            scored_hooks=scored_hook_details,
+            package_audit=package_audit
         )
 
     async def _generate_with_openai(self, topic: str, target_duration: int, language: str, platform: str, visual_style: str) -> ScriptGenerationOutput:
@@ -576,5 +586,157 @@ class LLMEngine:
                 if res.status != 200:
                     raise Exception("Ollama server not reachable")
         return self._generate_fallback(topic, target_duration, language, platform, visual_style, "general")
+
+    def create_from_existing_script(
+        self,
+        title: str,
+        script_text: str,
+        target_duration: int = 45,
+        language: str = "en",
+        platform: str = "youtube_shorts",
+        visual_style: str = "cinematic"
+    ) -> ScriptGenerationOutput:
+        """
+        Parses a user-supplied script into coherent scene chunks, preserves exact narration,
+        scores the opening hook with hook_scorer, extracts search queries, and formats visual descriptions.
+        """
+        clean_text = script_text.strip()
+        raw_paragraphs = [p.strip() for p in re.split(r"\n\s*\n+", clean_text) if p.strip()]
+        
+        sentences: List[str] = []
+        if len(raw_paragraphs) >= 3:
+            sentences = raw_paragraphs
+        else:
+            raw_s = re.split(r"(?<=[.!?])\s+", clean_text)
+            sentences = [s.strip() for s in raw_s if s.strip()]
+
+        if not sentences:
+            sentences = [clean_text]
+
+        scene_chunks: List[str] = []
+        current_chunk: List[str] = []
+        current_words = 0
+        total_w = len(clean_text.split())
+        target_words_per_scene = max(10, total_w // 5) if total_w > 30 else 15
+
+        for s in sentences:
+            w_count = len(s.split())
+            if current_chunk and (current_words + w_count) > (target_words_per_scene * 1.5):
+                scene_chunks.append(" ".join(current_chunk))
+                current_chunk = [s]
+                current_words = w_count
+            else:
+                current_chunk.append(s)
+                current_words += w_count
+
+        if current_chunk:
+            scene_chunks.append(" ".join(current_chunk))
+
+        scenes: List[SceneSchema] = []
+        roles = ["hook", "setup", "main", "climax", "payoff", "outro"]
+
+        for idx, chunk in enumerate(scene_chunks):
+            role = roles[idx] if idx < len(roles) else "main"
+            words = [w.lower() for w in re.findall(r"[a-z0-9]+", chunk) if len(w) > 3]
+            keywords = [w for w in words if w not in {"this", "that", "with", "have", "from", "they", "will", "what", "about", "your", "their"}][:3]
+            if not keywords:
+                keywords = ["cinematic", "dynamic", "focus"]
+                
+            on_screen = " ".join(keywords[:2]).upper() if keywords else "HIGHLIGHT"
+            est_dur = max(3.0, round(len(chunk.split()) / 2.5, 1))
+
+            scenes.append(
+                SceneSchema(
+                    scene_id=f"scene-{uuid.uuid4().hex[:6]}",
+                    order=idx + 1,
+                    role=role,
+                    narration=sanitize_narration_for_speech(chunk),
+                    estimated_duration_seconds=est_dur,
+                    visual_description=f"Cinematic visual illustrating: {chunk[:80]}...",
+                    search_queries=keywords + [visual_style],
+                    on_screen_text=on_screen,
+                    transition_in="fade" if idx == 0 else "cut",
+                    transition_out="fade" if idx == len(scene_chunks) - 1 else "cut",
+                    caption_style="word_highlight"
+                )
+            )
+
+        from backend.app.services.youtube_tools.hook_scorer import score_hook
+        hook_score = score_hook(scenes[0].narration) if scenes else None
+        package_audit = lint_package(title, scenes[0].on_screen_text if scenes else None)
+
+        return ScriptGenerationOutput(
+            title=title,
+            hook_options=[scenes[0].narration] if scenes else [title],
+            recommended_hook=scenes[0].narration if scenes else title,
+            full_script=clean_text,
+            target_duration_seconds=int(sum(s.estimated_duration_seconds for s in scenes)),
+            scenes=scenes,
+            scored_hooks=[hook_score] if hook_score else None,
+            package_audit=package_audit
+        )
+
+    def create_vox_explainer_script(
+        self,
+        topic: str,
+        theme_id: str = "swiss-modern",
+        arc_id: str = "how_it_works",
+        aspect_ratio: str = "9:16",
+        existing_script: Optional[str] = None,
+        target_duration: int = 45,
+    ) -> ScriptGenerationOutput:
+        from backend.app.services.vox_engine.generator import VoxExplainerGenerator
+        vox_data = VoxExplainerGenerator.generate_vox_project(
+            topic=topic,
+            theme_id=theme_id,
+            arc_id=arc_id,
+            aspect_ratio=aspect_ratio,
+            existing_script=existing_script,
+            target_duration=target_duration
+        )
+
+        # Extract topic-relevant keywords for B-roll matching
+        topic_words = [w.lower() for w in re.findall(r"[a-z0-9]+", topic) if len(w) > 3]
+        topic_keywords = [w for w in topic_words if w not in {"summary", "about", "what", "with", "from", "your", "their", "this", "that", "rule", "explainer"}][:3]
+
+        scenes: List[SceneSchema] = []
+        for s in vox_data["scenes"]:
+            narr_words = [w.lower() for w in re.findall(r"[a-z0-9]+", s["narration"]) if len(w) > 3]
+            narr_keywords = [w for w in narr_words if w not in {"everyone", "completely", "misinterprets", "actually", "hidden", "plain", "sight", "standard", "simple", "closer", "surface", "before", "straightforward", "understand", "controls", "rules"}][:2]
+            scene_queries = list(dict.fromkeys(narr_keywords + topic_keywords + [s["beat_role"]]))[:4]
+            if not scene_queries:
+                scene_queries = ["lifestyle", "focus", "modern"]
+
+            scenes.append(
+                SceneSchema(
+                    scene_id=f"scene-{uuid.uuid4().hex[:6]}",
+                    order=s["scene_number"],
+                    role=s["beat_role"],
+                    narration=s["narration"],
+                    estimated_duration_seconds=s["duration"],
+                    visual_description=s["prompt_metadata"]["full_prompt"],
+                    search_queries=scene_queries,
+                    on_screen_text=s["headline"],
+                    transition_in="fade" if s["scene_number"] == 1 else "cut",
+                    transition_out="fade" if s["scene_number"] == len(vox_data["scenes"]) else "cut",
+                    caption_style="word_highlight"
+                )
+            )
+
+        full_script = " ".join(s.narration for s in scenes)
+        rec_hook = scenes[0].narration if scenes else topic
+        hook_score = vox_data["scenes"][0].get("hook_analysis") if vox_data["scenes"] else None
+        package_audit = lint_package(vox_data["title"], scenes[0].on_screen_text if scenes else None)
+
+        return ScriptGenerationOutput(
+            title=vox_data["title"],
+            hook_options=[rec_hook],
+            recommended_hook=rec_hook,
+            full_script=full_script,
+            target_duration_seconds=int(vox_data["total_estimated_duration"]),
+            scenes=scenes,
+            scored_hooks=[hook_score] if hook_score else None,
+            package_audit=package_audit
+        )
 
 llm_engine = LLMEngine()

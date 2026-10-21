@@ -12,14 +12,15 @@ import {
   ArrowRight,
   DollarSign,
   Download,
-  FolderOpen
+  FolderOpen,
+  FileText
 } from 'lucide-react';
 import { Project, api, TrendingTopic } from '../services/api';
 
 interface DashboardProps {
   projects: Project[];
   onSelectProject: (p: Project) => void;
-  onOpenCreate: (initialCategory?: string) => void;
+  onOpenCreate: (initialMode?: 'trends' | 'idea' | 'script' | 'vox') => void;
   onQuickStart: (topic: string) => void;
   onTrendStart: (trend: TrendingTopic, category: string) => void;
 }
@@ -63,10 +64,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <p className="page-subtitle">Real-world trending intelligence to vertical Shorts & Reels in minutes</p>
         </div>
 
-        <button className="btn btn-primary" onClick={() => onOpenCreate()}>
-          <PlusCircle size={16} />
-          <span>New Video Production</span>
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => onOpenCreate('script')}
+            style={{ borderColor: 'rgba(16, 185, 129, 0.4)', color: '#34d399' }}
+          >
+            <FileText size={16} color="#10b981" />
+            <span>Provide Script</span>
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => onOpenCreate('idea')}
+          >
+            <Sparkles size={16} color="#6366f1" />
+            <span>Provide Idea</span>
+          </button>
+          <button className="btn btn-primary" onClick={() => onOpenCreate('trends')}>
+            <PlusCircle size={16} />
+            <span>New Video</span>
+          </button>
+        </div>
       </div>
 
       {/* Metrics Banner */}
@@ -117,7 +135,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           <button 
             className="btn btn-secondary btn-sm" 
-            onClick={() => onOpenCreate(activeDomain)}
+            onClick={() => onOpenCreate('trends')}
             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <span>Open Topic Discovery Studio</span>

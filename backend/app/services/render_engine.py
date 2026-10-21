@@ -245,6 +245,11 @@ class RenderEngine:
             print(f"[RenderEngine] Job {job_id}: [{progress}%] {stage} - {description}")
 
     def _resolve_local_asset(self, candidate, all_candidates, scene, aspect_ratio: str, duration: float, idx: int) -> str:
+        if scene and scene.selected_asset_id:
+            raw_sel = scene.selected_asset_id.replace("file:///", "").replace("/", os.sep)
+            if os.path.exists(raw_sel) and os.path.getsize(raw_sel) > 1024:
+                return os.path.abspath(raw_sel)
+
         candidates_to_try = [candidate] if candidate else []
         if all_candidates:
             for c in all_candidates:
@@ -264,7 +269,17 @@ class RenderEngine:
                     if downloaded and os.path.exists(downloaded) and os.path.getsize(downloaded) > 1024:
                         return downloaded
 
-        # If all candidates fail, fall back to synthesized HD clip for this specific scene
+        # If online retrieval didn't return a candidate, prioritize real cached B-roll footage
+        cache_dir = os.path.join(settings.STORAGE_DIR, "stock_library", "cache")
+        if os.path.exists(cache_dir):
+            cached_files = [
+                os.path.join(cache_dir, f) for f in os.listdir(cache_dir)
+                if f.endswith(".mp4") and not f.endswith(".tmp") and os.path.getsize(os.path.join(cache_dir, f)) > 1024 * 1024
+            ]
+            if cached_files:
+                return cached_files[idx % len(cached_files)]
+
+        # If all candidates fail and no cache available, fall back to synthesized HD clip
         w = 1080 if aspect_ratio == "9:16" else 1920
         h = 1920 if aspect_ratio == "9:16" else 1080
         fallback_path = os.path.join(settings.STORAGE_DIR, "stock_library", f"scene_{scene.scene_id}_{w}x{h}.mp4")

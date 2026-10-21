@@ -83,18 +83,18 @@ class BRollEngine:
                 print(f"[BRollEngine SECURITY] Download exceeds size limit of {self.MAX_DOWNLOAD_BYTES} bytes: {content_length}")
                 return ""
 
-                downloaded_bytes = 0
-                with open(temp_dest, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=65536):
-                        if chunk:
-                            downloaded_bytes += len(chunk)
-                            if downloaded_bytes > self.MAX_DOWNLOAD_BYTES:
-                                print(f"[BRollEngine SECURITY] Download exceeded size limit mid-stream: {downloaded_bytes} bytes")
-                                f.close()
-                                if os.path.exists(temp_dest):
-                                    os.remove(temp_dest)
-                                return ""
-                            f.write(chunk)
+            downloaded_bytes = 0
+            with open(temp_dest, "wb") as f:
+                for chunk in r.iter_content(chunk_size=65536):
+                    if chunk:
+                        downloaded_bytes += len(chunk)
+                        if downloaded_bytes > self.MAX_DOWNLOAD_BYTES:
+                            print(f"[BRollEngine SECURITY] Download exceeded size limit mid-stream: {downloaded_bytes} bytes")
+                            f.close()
+                            if os.path.exists(temp_dest):
+                                os.remove(temp_dest)
+                            return ""
+                        f.write(chunk)
 
             if os.path.exists(temp_dest) and os.path.getsize(temp_dest) > 1024:
                 if os.path.exists(dest_path):

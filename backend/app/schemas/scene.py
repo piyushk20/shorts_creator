@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from pydantic import BaseModel, Field
 
 class CaptionWordToken(BaseModel):
@@ -34,3 +34,5 @@ class ScriptGenerationOutput(BaseModel):
     full_script: str
     target_duration_seconds: int
     scenes: List[SceneSchema]
+    scored_hooks: Optional[List[Dict[str, Any]]] = None
+    package_audit: Optional[Dict[str, Any]] = None

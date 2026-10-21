@@ -40,3 +40,12 @@ storage/
 Thumbs.db
 .vscode/
 .idea/
+
+# External cloned repositories & submodules
+remotiom/
+scratch/claude-remotion-skill/
+scratch/vox-director/
+
+# Remotion local builds and temporary test renders
+vox_remotion/out/
+vox_remotion/*.png

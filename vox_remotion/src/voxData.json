@@ -1,0 +1,1085 @@
+{
+  "title": "How Index Funds Work",
+  "subtitle": "The Math of Buying the Haystack",
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "total_frames": 1678,
+  "total_duration_sec": 55.93333333333333,
+  "audio_src": "audio/master_audio.aac",
+  "scenes": [
+    {
+      "index": 0,
+      "scene_id": "beat_1",
+      "role": "hook",
+      "headline": "THE MARKET TRAP",
+      "narration": "Most people think beating the stock market means picking the next Apple or Nvidia. But Wall Street's best-kept secret is that almost nobody can.",
+      "badge": "WALL STREET ILLUSION",
+      "accent": "#E11D48",
+      "duration_sec": 9.040000000000001,
+      "frame_count": 271,
+      "start_frame": 0,
+      "end_frame": 271,
+      "audio_file": "audio/beat_1_narration.mp3",
+      "tokens": [
+        {
+          "word": "Most",
+          "start": 0.0,
+          "end": 0.36,
+          "start_frame": 0,
+          "end_frame": 11
+        },
+        {
+          "word": "people",
+          "start": 0.36,
+          "end": 0.72,
+          "start_frame": 11,
+          "end_frame": 22
+        },
+        {
+          "word": "think",
+          "start": 0.72,
+          "end": 1.08,
+          "start_frame": 22,
+          "end_frame": 32
+        },
+        {
+          "word": "beating",
+          "start": 1.08,
+          "end": 1.44,
+          "start_frame": 32,
+          "end_frame": 43
+        },
+        {
+          "word": "the",
+          "start": 1.44,
+          "end": 1.8,
+          "start_frame": 43,
+          "end_frame": 54
+        },
+        {
+          "word": "stock",
+          "start": 1.8,
+          "end": 2.16,
+          "start_frame": 54,
+          "end_frame": 65
+        },
+        {
+          "word": "market",
+          "start": 2.16,
+          "end": 2.52,
+          "start_frame": 65,
+          "end_frame": 76
+        },
+        {
+          "word": "means",
+          "start": 2.52,
+          "end": 2.88,
+          "start_frame": 76,
+          "end_frame": 86
+        },
+        {
+          "word": "picking",
+          "start": 2.88,
+          "end": 3.24,
+          "start_frame": 86,
+          "end_frame": 97
+        },
+        {
+          "word": "the",
+          "start": 3.24,
+          "end": 3.6,
+          "start_frame": 97,
+          "end_frame": 108
+        },
+        {
+          "word": "next",
+          "start": 3.6,
+          "end": 3.96,
+          "start_frame": 108,
+          "end_frame": 119
+        },
+        {
+          "word": "Apple",
+          "start": 3.96,
+          "end": 4.32,
+          "start_frame": 119,
+          "end_frame": 130
+        },
+        {
+          "word": "or",
+          "start": 4.32,
+          "end": 4.68,
+          "start_frame": 130,
+          "end_frame": 140
+        },
+        {
+          "word": "Nvidia.",
+          "start": 4.68,
+          "end": 5.04,
+          "start_frame": 140,
+          "end_frame": 151
+        },
+        {
+          "word": "But",
+          "start": 5.04,
+          "end": 5.4,
+          "start_frame": 151,
+          "end_frame": 162
+        },
+        {
+          "word": "Wall",
+          "start": 5.4,
+          "end": 5.76,
+          "start_frame": 162,
+          "end_frame": 173
+        },
+        {
+          "word": "Street's",
+          "start": 5.76,
+          "end": 6.12,
+          "start_frame": 173,
+          "end_frame": 184
+        },
+        {
+          "word": "best-kept",
+          "start": 6.12,
+          "end": 6.48,
+          "start_frame": 184,
+          "end_frame": 194
+        },
+        {
+          "word": "secret",
+          "start": 6.48,
+          "end": 6.84,
+          "start_frame": 194,
+          "end_frame": 205
+        },
+        {
+          "word": "is",
+          "start": 6.84,
+          "end": 7.2,
+          "start_frame": 205,
+          "end_frame": 216
+        },
+        {
+          "word": "that",
+          "start": 7.2,
+          "end": 7.56,
+          "start_frame": 216,
+          "end_frame": 227
+        },
+        {
+          "word": "almost",
+          "start": 7.56,
+          "end": 7.92,
+          "start_frame": 227,
+          "end_frame": 238
+        },
+        {
+          "word": "nobody",
+          "start": 7.92,
+          "end": 8.28,
+          "start_frame": 238,
+          "end_frame": 248
+        },
+        {
+          "word": "can.",
+          "start": 8.28,
+          "end": 8.64,
+          "start_frame": 248,
+          "end_frame": 259
+        }
+      ],
+      "query": "stock-market",
+      "broll_video": "assets/broll_1.mp4",
+      "broll_thumb": "assets/broll_1.jpg"
+    },
+    {
+      "index": 1,
+      "scene_id": "beat_2",
+      "role": "misconception",
+      "headline": "92% OF MANAGERS FAIL",
+      "narration": "Over ninety-two percent of professional hedge fund managers fail to beat the simple S&P 500 index over a fifteen-year period. Their fees quietly drain your portfolio.",
+      "badge": "15-YEAR SPIVA DATA",
+      "accent": "#F59E0B",
+      "duration_sec": 11.030000000000001,
+      "frame_count": 331,
+      "start_frame": 271,
+      "end_frame": 602,
+      "audio_file": "audio/beat_2_narration.mp3",
+      "tokens": [
+        {
+          "word": "Over",
+          "start": 0.0,
+          "end": 0.409,
+          "start_frame": 0,
+          "end_frame": 12
+        },
+        {
+          "word": "ninety-two",
+          "start": 0.409,
+          "end": 0.818,
+          "start_frame": 12,
+          "end_frame": 25
+        },
+        {
+          "word": "percent",
+          "start": 0.818,
+          "end": 1.227,
+          "start_frame": 25,
+          "end_frame": 37
+        },
+        {
+          "word": "of",
+          "start": 1.227,
+          "end": 1.635,
+          "start_frame": 37,
+          "end_frame": 49
+        },
+        {
+          "word": "professional",
+          "start": 1.635,
+          "end": 2.044,
+          "start_frame": 49,
+          "end_frame": 61
+        },
+        {
+          "word": "hedge",
+          "start": 2.044,
+          "end": 2.453,
+          "start_frame": 61,
+          "end_frame": 74
+        },
+        {
+          "word": "fund",
+          "start": 2.453,
+          "end": 2.862,
+          "start_frame": 74,
+          "end_frame": 86
+        },
+        {
+          "word": "managers",
+          "start": 2.862,
+          "end": 3.271,
+          "start_frame": 86,
+          "end_frame": 98
+        },
+        {
+          "word": "fail",
+          "start": 3.271,
+          "end": 3.68,
+          "start_frame": 98,
+          "end_frame": 110
+        },
+        {
+          "word": "to",
+          "start": 3.68,
+          "end": 4.088,
+          "start_frame": 110,
+          "end_frame": 123
+        },
+        {
+          "word": "beat",
+          "start": 4.088,
+          "end": 4.497,
+          "start_frame": 123,
+          "end_frame": 135
+        },
+        {
+          "word": "the",
+          "start": 4.497,
+          "end": 4.906,
+          "start_frame": 135,
+          "end_frame": 147
+        },
+        {
+          "word": "simple",
+          "start": 4.906,
+          "end": 5.315,
+          "start_frame": 147,
+          "end_frame": 159
+        },
+        {
+          "word": "S&P",
+          "start": 5.315,
+          "end": 5.724,
+          "start_frame": 159,
+          "end_frame": 172
+        },
+        {
+          "word": "500",
+          "start": 5.724,
+          "end": 6.133,
+          "start_frame": 172,
+          "end_frame": 184
+        },
+        {
+          "word": "index",
+          "start": 6.133,
+          "end": 6.542,
+          "start_frame": 184,
+          "end_frame": 196
+        },
+        {
+          "word": "over",
+          "start": 6.542,
+          "end": 6.95,
+          "start_frame": 196,
+          "end_frame": 208
+        },
+        {
+          "word": "a",
+          "start": 6.95,
+          "end": 7.359,
+          "start_frame": 208,
+          "end_frame": 221
+        },
+        {
+          "word": "fifteen-year",
+          "start": 7.359,
+          "end": 7.768,
+          "start_frame": 221,
+          "end_frame": 233
+        },
+        {
+          "word": "period.",
+          "start": 7.768,
+          "end": 8.177,
+          "start_frame": 233,
+          "end_frame": 245
+        },
+        {
+          "word": "Their",
+          "start": 8.177,
+          "end": 8.586,
+          "start_frame": 245,
+          "end_frame": 258
+        },
+        {
+          "word": "fees",
+          "start": 8.586,
+          "end": 8.995,
+          "start_frame": 258,
+          "end_frame": 270
+        },
+        {
+          "word": "quietly",
+          "start": 8.995,
+          "end": 9.403,
+          "start_frame": 270,
+          "end_frame": 282
+        },
+        {
+          "word": "drain",
+          "start": 9.403,
+          "end": 9.812,
+          "start_frame": 282,
+          "end_frame": 294
+        },
+        {
+          "word": "your",
+          "start": 9.812,
+          "end": 10.221,
+          "start_frame": 294,
+          "end_frame": 307
+        },
+        {
+          "word": "portfolio.",
+          "start": 10.221,
+          "end": 10.63,
+          "start_frame": 307,
+          "end_frame": 319
+        }
+      ],
+      "query": "finance",
+      "broll_video": "assets/broll_2.mp4",
+      "broll_thumb": "assets/broll_2.jpg"
+    },
+    {
+      "index": 2,
+      "scene_id": "beat_3",
+      "role": "hidden_engine",
+      "headline": "BUY THE HAYSTACK",
+      "narration": "In 1975, legendary investor John Bogle launched a radical idea: Don't look for the needle in the haystack. Just buy the entire haystack.",
+      "badge": "VANGUARD 1975",
+      "accent": "#2563EB",
+      "duration_sec": 9.83,
+      "frame_count": 295,
+      "start_frame": 602,
+      "end_frame": 897,
+      "audio_file": "audio/beat_3_narration.mp3",
+      "tokens": [
+        {
+          "word": "In",
+          "start": 0.0,
+          "end": 0.41,
+          "start_frame": 0,
+          "end_frame": 12
+        },
+        {
+          "word": "1975,",
+          "start": 0.41,
+          "end": 0.82,
+          "start_frame": 12,
+          "end_frame": 25
+        },
+        {
+          "word": "legendary",
+          "start": 0.82,
+          "end": 1.23,
+          "start_frame": 25,
+          "end_frame": 37
+        },
+        {
+          "word": "investor",
+          "start": 1.23,
+          "end": 1.64,
+          "start_frame": 37,
+          "end_frame": 49
+        },
+        {
+          "word": "John",
+          "start": 1.64,
+          "end": 2.05,
+          "start_frame": 49,
+          "end_frame": 61
+        },
+        {
+          "word": "Bogle",
+          "start": 2.05,
+          "end": 2.46,
+          "start_frame": 61,
+          "end_frame": 74
+        },
+        {
+          "word": "launched",
+          "start": 2.46,
+          "end": 2.87,
+          "start_frame": 74,
+          "end_frame": 86
+        },
+        {
+          "word": "a",
+          "start": 2.87,
+          "end": 3.28,
+          "start_frame": 86,
+          "end_frame": 98
+        },
+        {
+          "word": "radical",
+          "start": 3.28,
+          "end": 3.69,
+          "start_frame": 98,
+          "end_frame": 111
+        },
+        {
+          "word": "idea:",
+          "start": 3.69,
+          "end": 4.1,
+          "start_frame": 111,
+          "end_frame": 123
+        },
+        {
+          "word": "Don't",
+          "start": 4.1,
+          "end": 4.51,
+          "start_frame": 123,
+          "end_frame": 135
+        },
+        {
+          "word": "look",
+          "start": 4.51,
+          "end": 4.92,
+          "start_frame": 135,
+          "end_frame": 148
+        },
+        {
+          "word": "for",
+          "start": 4.92,
+          "end": 5.33,
+          "start_frame": 148,
+          "end_frame": 160
+        },
+        {
+          "word": "the",
+          "start": 5.33,
+          "end": 5.74,
+          "start_frame": 160,
+          "end_frame": 172
+        },
+        {
+          "word": "needle",
+          "start": 5.74,
+          "end": 6.15,
+          "start_frame": 172,
+          "end_frame": 184
+        },
+        {
+          "word": "in",
+          "start": 6.15,
+          "end": 6.56,
+          "start_frame": 184,
+          "end_frame": 197
+        },
+        {
+          "word": "the",
+          "start": 6.56,
+          "end": 6.97,
+          "start_frame": 197,
+          "end_frame": 209
+        },
+        {
+          "word": "haystack.",
+          "start": 6.97,
+          "end": 7.38,
+          "start_frame": 209,
+          "end_frame": 221
+        },
+        {
+          "word": "Just",
+          "start": 7.38,
+          "end": 7.79,
+          "start_frame": 221,
+          "end_frame": 234
+        },
+        {
+          "word": "buy",
+          "start": 7.79,
+          "end": 8.2,
+          "start_frame": 234,
+          "end_frame": 246
+        },
+        {
+          "word": "the",
+          "start": 8.2,
+          "end": 8.61,
+          "start_frame": 246,
+          "end_frame": 258
+        },
+        {
+          "word": "entire",
+          "start": 8.61,
+          "end": 9.02,
+          "start_frame": 258,
+          "end_frame": 271
+        },
+        {
+          "word": "haystack.",
+          "start": 9.02,
+          "end": 9.43,
+          "start_frame": 271,
+          "end_frame": 283
+        }
+      ],
+      "query": "money",
+      "broll_video": "assets/broll_3.mp4",
+      "broll_thumb": "assets/broll_3.jpg"
+    },
+    {
+      "index": 3,
+      "scene_id": "beat_4",
+      "role": "step_breakdown",
+      "headline": "THE 500-COMPANY BASKET",
+      "narration": "An index fund automatically buys a proportional slice of all 500 largest profitable American companies in one single, self-cleansing basket.",
+      "badge": "S&P 500 MECHANISM",
+      "accent": "#059669",
+      "duration_sec": 8.66,
+      "frame_count": 260,
+      "start_frame": 897,
+      "end_frame": 1157,
+      "audio_file": "audio/beat_4_narration.mp3",
+      "tokens": [
+        {
+          "word": "An",
+          "start": 0.0,
+          "end": 0.413,
+          "start_frame": 0,
+          "end_frame": 12
+        },
+        {
+          "word": "index",
+          "start": 0.413,
+          "end": 0.826,
+          "start_frame": 12,
+          "end_frame": 25
+        },
+        {
+          "word": "fund",
+          "start": 0.826,
+          "end": 1.239,
+          "start_frame": 25,
+          "end_frame": 37
+        },
+        {
+          "word": "automatically",
+          "start": 1.239,
+          "end": 1.652,
+          "start_frame": 37,
+          "end_frame": 50
+        },
+        {
+          "word": "buys",
+          "start": 1.652,
+          "end": 2.065,
+          "start_frame": 50,
+          "end_frame": 62
+        },
+        {
+          "word": "a",
+          "start": 2.065,
+          "end": 2.478,
+          "start_frame": 62,
+          "end_frame": 74
+        },
+        {
+          "word": "proportional",
+          "start": 2.478,
+          "end": 2.891,
+          "start_frame": 74,
+          "end_frame": 87
+        },
+        {
+          "word": "slice",
+          "start": 2.891,
+          "end": 3.304,
+          "start_frame": 87,
+          "end_frame": 99
+        },
+        {
+          "word": "of",
+          "start": 3.304,
+          "end": 3.717,
+          "start_frame": 99,
+          "end_frame": 112
+        },
+        {
+          "word": "all",
+          "start": 3.717,
+          "end": 4.13,
+          "start_frame": 112,
+          "end_frame": 124
+        },
+        {
+          "word": "500",
+          "start": 4.13,
+          "end": 4.543,
+          "start_frame": 124,
+          "end_frame": 136
+        },
+        {
+          "word": "largest",
+          "start": 4.543,
+          "end": 4.956,
+          "start_frame": 136,
+          "end_frame": 149
+        },
+        {
+          "word": "profitable",
+          "start": 4.956,
+          "end": 5.369,
+          "start_frame": 149,
+          "end_frame": 161
+        },
+        {
+          "word": "American",
+          "start": 5.369,
+          "end": 5.782,
+          "start_frame": 161,
+          "end_frame": 173
+        },
+        {
+          "word": "companies",
+          "start": 5.782,
+          "end": 6.195,
+          "start_frame": 173,
+          "end_frame": 186
+        },
+        {
+          "word": "in",
+          "start": 6.195,
+          "end": 6.608,
+          "start_frame": 186,
+          "end_frame": 198
+        },
+        {
+          "word": "one",
+          "start": 6.608,
+          "end": 7.021,
+          "start_frame": 198,
+          "end_frame": 211
+        },
+        {
+          "word": "single,",
+          "start": 7.021,
+          "end": 7.434,
+          "start_frame": 211,
+          "end_frame": 223
+        },
+        {
+          "word": "self-cleansing",
+          "start": 7.434,
+          "end": 7.847,
+          "start_frame": 223,
+          "end_frame": 235
+        },
+        {
+          "word": "basket.",
+          "start": 7.847,
+          "end": 8.26,
+          "start_frame": 235,
+          "end_frame": 248
+        }
+      ],
+      "query": "business",
+      "broll_video": "assets/broll_4.mp4",
+      "broll_thumb": "assets/broll_4.jpg"
+    },
+    {
+      "index": 4,
+      "scene_id": "beat_5",
+      "role": "implication",
+      "headline": "THE 1% FEE DESTROYER",
+      "narration": "Active funds charge over one percent every year. Index funds charge near zero, saving you hundreds of thousands of dollars in compounding fees.",
+      "badge": "COMPOUND MATH",
+      "accent": "#DC2626",
+      "duration_sec": 9.540000000000001,
+      "frame_count": 286,
+      "start_frame": 1157,
+      "end_frame": 1443,
+      "audio_file": "audio/beat_5_narration.mp3",
+      "tokens": [
+        {
+          "word": "Active",
+          "start": 0.0,
+          "end": 0.397,
+          "start_frame": 0,
+          "end_frame": 12
+        },
+        {
+          "word": "funds",
+          "start": 0.397,
+          "end": 0.795,
+          "start_frame": 12,
+          "end_frame": 24
+        },
+        {
+          "word": "charge",
+          "start": 0.795,
+          "end": 1.192,
+          "start_frame": 24,
+          "end_frame": 36
+        },
+        {
+          "word": "over",
+          "start": 1.192,
+          "end": 1.59,
+          "start_frame": 36,
+          "end_frame": 48
+        },
+        {
+          "word": "one",
+          "start": 1.59,
+          "end": 1.987,
+          "start_frame": 48,
+          "end_frame": 60
+        },
+        {
+          "word": "percent",
+          "start": 1.987,
+          "end": 2.384,
+          "start_frame": 60,
+          "end_frame": 72
+        },
+        {
+          "word": "every",
+          "start": 2.384,
+          "end": 2.782,
+          "start_frame": 72,
+          "end_frame": 83
+        },
+        {
+          "word": "year.",
+          "start": 2.782,
+          "end": 3.179,
+          "start_frame": 83,
+          "end_frame": 95
+        },
+        {
+          "word": "Index",
+          "start": 3.179,
+          "end": 3.577,
+          "start_frame": 95,
+          "end_frame": 107
+        },
+        {
+          "word": "funds",
+          "start": 3.577,
+          "end": 3.974,
+          "start_frame": 107,
+          "end_frame": 119
+        },
+        {
+          "word": "charge",
+          "start": 3.974,
+          "end": 4.371,
+          "start_frame": 119,
+          "end_frame": 131
+        },
+        {
+          "word": "near",
+          "start": 4.371,
+          "end": 4.769,
+          "start_frame": 131,
+          "end_frame": 143
+        },
+        {
+          "word": "zero,",
+          "start": 4.769,
+          "end": 5.166,
+          "start_frame": 143,
+          "end_frame": 155
+        },
+        {
+          "word": "saving",
+          "start": 5.166,
+          "end": 5.563,
+          "start_frame": 155,
+          "end_frame": 167
+        },
+        {
+          "word": "you",
+          "start": 5.563,
+          "end": 5.961,
+          "start_frame": 167,
+          "end_frame": 179
+        },
+        {
+          "word": "hundreds",
+          "start": 5.961,
+          "end": 6.358,
+          "start_frame": 179,
+          "end_frame": 191
+        },
+        {
+          "word": "of",
+          "start": 6.358,
+          "end": 6.756,
+          "start_frame": 191,
+          "end_frame": 203
+        },
+        {
+          "word": "thousands",
+          "start": 6.756,
+          "end": 7.153,
+          "start_frame": 203,
+          "end_frame": 215
+        },
+        {
+          "word": "of",
+          "start": 7.153,
+          "end": 7.55,
+          "start_frame": 215,
+          "end_frame": 226
+        },
+        {
+          "word": "dollars",
+          "start": 7.55,
+          "end": 7.948,
+          "start_frame": 226,
+          "end_frame": 238
+        },
+        {
+          "word": "in",
+          "start": 7.948,
+          "end": 8.345,
+          "start_frame": 238,
+          "end_frame": 250
+        },
+        {
+          "word": "compounding",
+          "start": 8.345,
+          "end": 8.743,
+          "start_frame": 250,
+          "end_frame": 262
+        },
+        {
+          "word": "fees.",
+          "start": 8.743,
+          "end": 9.14,
+          "start_frame": 262,
+          "end_frame": 274
+        }
+      ],
+      "query": "finance",
+      "broll_video": "assets/broll_5.mp4",
+      "broll_thumb": "assets/broll_5.jpg"
+    },
+    {
+      "index": 5,
+      "scene_id": "beat_6",
+      "role": "payoff",
+      "headline": "OWN THE MACHINE",
+      "narration": "You don't need to predict tomorrow's winners. By owning the whole market, the compounding engine of human innovation works for you.",
+      "badge": "THE FINAL RULE",
+      "accent": "#7C3AED",
+      "duration_sec": 7.840000000000001,
+      "frame_count": 235,
+      "start_frame": 1443,
+      "end_frame": 1678,
+      "audio_file": "audio/beat_6_narration.mp3",
+      "tokens": [
+        {
+          "word": "You",
+          "start": 0.0,
+          "end": 0.354,
+          "start_frame": 0,
+          "end_frame": 11
+        },
+        {
+          "word": "don't",
+          "start": 0.354,
+          "end": 0.709,
+          "start_frame": 11,
+          "end_frame": 21
+        },
+        {
+          "word": "need",
+          "start": 0.709,
+          "end": 1.063,
+          "start_frame": 21,
+          "end_frame": 32
+        },
+        {
+          "word": "to",
+          "start": 1.063,
+          "end": 1.417,
+          "start_frame": 32,
+          "end_frame": 43
+        },
+        {
+          "word": "predict",
+          "start": 1.417,
+          "end": 1.771,
+          "start_frame": 43,
+          "end_frame": 53
+        },
+        {
+          "word": "tomorrow's",
+          "start": 1.771,
+          "end": 2.126,
+          "start_frame": 53,
+          "end_frame": 64
+        },
+        {
+          "word": "winners.",
+          "start": 2.126,
+          "end": 2.48,
+          "start_frame": 64,
+          "end_frame": 74
+        },
+        {
+          "word": "By",
+          "start": 2.48,
+          "end": 2.834,
+          "start_frame": 74,
+          "end_frame": 85
+        },
+        {
+          "word": "owning",
+          "start": 2.834,
+          "end": 3.189,
+          "start_frame": 85,
+          "end_frame": 96
+        },
+        {
+          "word": "the",
+          "start": 3.189,
+          "end": 3.543,
+          "start_frame": 96,
+          "end_frame": 106
+        },
+        {
+          "word": "whole",
+          "start": 3.543,
+          "end": 3.897,
+          "start_frame": 106,
+          "end_frame": 117
+        },
+        {
+          "word": "market,",
+          "start": 3.897,
+          "end": 4.251,
+          "start_frame": 117,
+          "end_frame": 128
+        },
+        {
+          "word": "the",
+          "start": 4.251,
+          "end": 4.606,
+          "start_frame": 128,
+          "end_frame": 138
+        },
+        {
+          "word": "compounding",
+          "start": 4.606,
+          "end": 4.96,
+          "start_frame": 138,
+          "end_frame": 149
+        },
+        {
+          "word": "engine",
+          "start": 4.96,
+          "end": 5.314,
+          "start_frame": 149,
+          "end_frame": 159
+        },
+        {
+          "word": "of",
+          "start": 5.314,
+          "end": 5.669,
+          "start_frame": 159,
+          "end_frame": 170
+        },
+        {
+          "word": "human",
+          "start": 5.669,
+          "end": 6.023,
+          "start_frame": 170,
+          "end_frame": 181
+        },
+        {
+          "word": "innovation",
+          "start": 6.023,
+          "end": 6.377,
+          "start_frame": 181,
+          "end_frame": 191
+        },
+        {
+          "word": "works",
+          "start": 6.377,
+          "end": 6.731,
+          "start_frame": 191,
+          "end_frame": 202
+        },
+        {
+          "word": "for",
+          "start": 6.731,
+          "end": 7.086,
+          "start_frame": 202,
+          "end_frame": 213
+        },
+        {
+          "word": "you.",
+          "start": 7.086,
+          "end": 7.44,
+          "start_frame": 213,
+          "end_frame": 223
+        }
+      ],
+      "query": "mountain",
+      "broll_video": "assets/broll_6.mp4",
+      "broll_thumb": "assets/broll_6.jpg"
+    }
+  ]
+}
