@@ -258,6 +258,22 @@ export const api = {
     return res.json();
   },
 
+  async getSocialBranding(): Promise<any> {
+    const res = await fetch('/api/tools/social-branding');
+    if (!res.ok) throw new Error('Failed to fetch social branding settings');
+    return res.json();
+  },
+
+  async updateSocialBranding(payload: any): Promise<any> {
+    const res = await fetch('/api/tools/social-branding', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to update social branding');
+    return res.json();
+  },
+
   async getVoxThemes(): Promise<{ themes: VoxTheme[] }> {
     const res = await fetch('/api/vox/themes');
     if (!res.ok) throw new Error('Failed to fetch Vox themes');

@@ -97,3 +97,18 @@ def api_retention_audit(req: RetentionRequest):
         video_duration_seconds=req.video_duration_seconds,
         axis_type=req.axis_type
     )
+
+
+from backend.app.services.social_branding_service import social_branding_service
+
+@router.get("/social-branding")
+def get_social_branding():
+    """Retrieve configured social media handles and outro CTA settings."""
+    return social_branding_service.get_branding()
+
+
+@router.post("/social-branding")
+def update_social_branding(payload: Dict[str, Any]):
+    """Save or update social media handles and outro CTA settings."""
+    return social_branding_service.update_branding(payload)
+

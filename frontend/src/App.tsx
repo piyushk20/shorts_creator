@@ -13,6 +13,7 @@ export const App: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [createInitialMode, setCreateInitialMode] = useState<'trends' | 'idea' | 'script' | 'vox'>('trends');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'social' | 'providers' | 'engine'>('social');
   const [loading, setLoading] = useState(true);
 
   const handleOpenCreate = (mode: 'trends' | 'idea' | 'script' | 'vox' = 'trends') => {
@@ -101,7 +102,7 @@ export const App: React.FC = () => {
     <div className="app-container">
       <Navbar 
         onOpenCreate={handleOpenCreate}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={(tab = 'social') => { setSettingsTab(tab); setIsSettingsOpen(true); }}
         onGoHome={() => { setSelectedProject(null); setIsCreating(false); loadProjects(); }}
       />
 
@@ -130,7 +131,10 @@ export const App: React.FC = () => {
       </main>
 
       {isSettingsOpen && (
-        <SettingsModal onClose={() => setIsSettingsOpen(false)} />
+        <SettingsModal 
+          onClose={() => setIsSettingsOpen(false)} 
+          initialTab={settingsTab}
+        />
       )}
     </div>
   );
