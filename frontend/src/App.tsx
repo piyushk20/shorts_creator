@@ -3,6 +3,7 @@ import { Navbar } from './components/Navbar';
 import { Dashboard } from './components/Dashboard';
 import { CreateWizard } from './components/CreateWizard';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
+import { SuccessfulRendersTab } from './components/SuccessfulRendersTab';
 import { SettingsModal } from './components/SettingsModal';
 import { api, Project } from './services/api';
 import './styles/main.css';
@@ -12,6 +13,8 @@ export const App: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createInitialMode, setCreateInitialMode] = useState<'trends' | 'idea' | 'script' | 'vox'>('trends');
+  const [currentView, setCurrentView] = useState<'studio' | 'renders'>('studio');
+  const [rendersCount, setRendersCount] = useState<number>(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'social' | 'providers' | 'engine'>('social');
   const [loading, setLoading] = useState(true);
@@ -33,8 +36,18 @@ export const App: React.FC = () => {
     }
   };
 
+  const loadRendersCount = async () => {
+    try {
+      const res = await api.getSuccessfulRenders();
+      setRendersCount(res.total || 0);
+    } catch (e) {
+      console.error('Failed to load renders count', e);
+    }
+  };
+
   useEffect(() => {
     loadProjects();
+    loadRendersCount();
   }, []);
 
   const handleSelectProject = async (p: Project) => {
@@ -101,16 +114,32 @@ export const App: React.FC = () => {
   return (
     <div className="app-container">
       <Navbar 
+        currentView={currentView}
+        rendersCount={rendersCount}
+        onNavigate={(view) => {
+          setCurrentView(view);
+          setSelectedProject(null);
+          setIsCreating(false);
+          if (view === 'renders') {
+            loadRendersCount();
+          }
+        }}
         onOpenCreate={handleOpenCreate}
         onOpenSettings={(tab = 'social') => { setSettingsTab(tab); setIsSettingsOpen(true); }}
-        onGoHome={() => { setSelectedProject(null); setIsCreating(false); loadProjects(); }}
+        onGoHome={() => { 
+          setCurrentView('studio'); 
+          setSelectedProject(null); 
+          setIsCreating(false); 
+          loadProjects(); 
+          loadRendersCount();
+        }}
       />
 
       <main className="main-content">
         {selectedProject ? (
           <ProjectWorkspace 
             project={selectedProject} 
-            onBack={() => { setSelectedProject(null); loadProjects(); }}
+            onBack={() => { setSelectedProject(null); loadProjects(); loadRendersCount(); }}
             onRefresh={() => handleSelectProject(selectedProject)}
           />
         ) : isCreating ? (
@@ -119,13 +148,30 @@ export const App: React.FC = () => {
             onProjectCreated={handleProjectCreated}
             onCancel={() => setIsCreating(false)}
           />
+        ) : currentView === 'renders' ? (
+          <SuccessfulRendersTab 
+            onSelectProject={async (projId: string) => {
+              try {
+                const full = await api.getProject(projId);
+                setSelectedProject(full);
+              } catch (e) {
+                console.error('Failed to select project from renders tab', e);
+              }
+            }}
+            onOpenCreate={handleOpenCreate}
+          />
         ) : (
           <Dashboard 
             projects={projects}
+            rendersCount={rendersCount}
             onSelectProject={handleSelectProject}
             onOpenCreate={handleOpenCreate}
             onQuickStart={handleQuickStart}
             onTrendStart={handleTrendStart}
+            onNavigateToRenders={() => {
+              setCurrentView('renders');
+              loadRendersCount();
+            }}
           />
         )}
       </main>

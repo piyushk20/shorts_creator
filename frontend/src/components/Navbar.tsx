@@ -1,19 +1,92 @@
 import React from 'react';
-import { Film, PlusCircle, Settings, FileText, Scissors, Share2 } from 'lucide-react';
+import { Film, PlusCircle, Settings, FileText, Scissors, Share2, Sparkles, Video } from 'lucide-react';
 
 interface NavbarProps {
+  currentView?: 'studio' | 'renders';
+  rendersCount?: number;
+  onNavigate?: (view: 'studio' | 'renders') => void;
   onOpenCreate: (mode?: 'trends' | 'idea' | 'script' | 'vox') => void;
   onOpenSettings: (tab?: 'social' | 'providers' | 'engine') => void;
   onGoHome: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenCreate, onOpenSettings, onGoHome }) => {
+export const Navbar: React.FC<NavbarProps> = ({ 
+  currentView = 'studio',
+  rendersCount = 0,
+  onNavigate,
+  onOpenCreate, 
+  onOpenSettings, 
+  onGoHome 
+}) => {
   return (
     <header className="navbar">
-      <div className="brand-logo" onClick={onGoHome} style={{ cursor: 'pointer' }}>
-        <Film size={26} color="#6366f1" />
-        <span>CreatorFlow</span>
-        <span className="brand-badge">STUDIO AI</span>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div className="brand-logo" onClick={onGoHome} style={{ cursor: 'pointer' }}>
+          <Film size={26} color="#6366f1" />
+          <span>CreatorFlow</span>
+          <span className="brand-badge">STUDIO AI</span>
+        </div>
+
+        {/* Studio & Renders Primary Navigation Tabs */}
+        {onNavigate && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '28px' }}>
+            <button
+              type="button"
+              onClick={() => onNavigate('studio')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                background: currentView === 'studio' ? 'rgba(99, 102, 241, 0.2)' : 'transparent',
+                color: currentView === 'studio' ? '#818cf8' : 'var(--text-dim)',
+                border: currentView === 'studio' ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Sparkles size={14} color={currentView === 'studio' ? '#818cf8' : 'var(--text-dim)'} />
+              <span>Studio</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('renders')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                background: currentView === 'renders' ? 'rgba(16, 185, 129, 0.18)' : 'rgba(255, 255, 255, 0.04)',
+                color: currentView === 'renders' ? '#34d399' : 'var(--text-dim)',
+                border: currentView === 'renders' ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Video size={14} color={currentView === 'renders' ? '#10b981' : 'var(--text-dim)'} />
+              <span>Successful Renders</span>
+              {rendersCount > 0 && (
+                <span style={{
+                  background: currentView === 'renders' ? '#10b981' : 'rgba(16, 185, 129, 0.25)',
+                  color: currentView === 'renders' ? '#041f14' : '#34d399',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  padding: '1px 7px',
+                  borderRadius: '10px'
+                }}>
+                  {rendersCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="nav-actions">

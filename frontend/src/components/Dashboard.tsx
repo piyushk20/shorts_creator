@@ -19,18 +19,22 @@ import { Project, api, TrendingTopic } from '../services/api';
 
 interface DashboardProps {
   projects: Project[];
+  rendersCount?: number;
   onSelectProject: (p: Project) => void;
   onOpenCreate: (initialMode?: 'trends' | 'idea' | 'script' | 'vox') => void;
   onQuickStart: (topic: string) => void;
   onTrendStart: (trend: TrendingTopic, category: string) => void;
+  onNavigateToRenders?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   projects,
+  rendersCount,
   onSelectProject,
   onOpenCreate,
   onQuickStart,
-  onTrendStart
+  onTrendStart,
+  onNavigateToRenders
 }) => {
   const [activeDomain, setActiveDomain] = useState<string>('ai');
   const [trends, setTrends] = useState<TrendingTopic[]>([]);
@@ -89,10 +93,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Metrics Banner */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '32px' }}>
-        <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ color: 'var(--text-dim)', fontSize: '13px', fontWeight: 600 }}>TOTAL PRODUCTIONS</div>
-          <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'var(--font-heading)', marginTop: '4px' }}>
-            {projects.length}
+        <div 
+          className="glass-panel glass-panel-hover" 
+          style={{ padding: '20px', cursor: onNavigateToRenders ? 'pointer' : 'default', border: onNavigateToRenders ? '1px solid rgba(16, 185, 129, 0.4)' : undefined }}
+          onClick={onNavigateToRenders}
+          title={onNavigateToRenders ? "Click to open Successful Renders Library" : undefined}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ color: 'var(--text-dim)', fontSize: '13px', fontWeight: 600 }}>SUCCESSFUL RENDERS</div>
+            {onNavigateToRenders && (
+              <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                <span>Vault</span>
+                <ArrowRight size={12} />
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'var(--font-heading)', marginTop: '4px', color: '#10b981' }}>
+            {rendersCount !== undefined ? rendersCount : projects.length}
           </div>
         </div>
 

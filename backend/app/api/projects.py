@@ -520,6 +520,121 @@ def get_studio_settings():
     }
 
 # ============================================================================
+# SUCCESSFUL RENDERS GALLERY & DETAILS API
+# ============================================================================
+
+@router.get("/renders")
+def list_successful_renders(db: Session = Depends(get_db)):
+    """
+    Returns all successful video renders with complete details:
+    title, duration, resolution, renderer engine, file size, QA report, and stream URLs.
+    """
+    jobs = db.query(RenderJob).filter(RenderJob.status == "COMPLETED").order_by(RenderJob.start_time.desc()).all()
+    norm_storage = os.path.abspath(settings.STORAGE_DIR).replace("\\", "/").rstrip("/")
+    results = []
+
+    def format_size(bytes_val: int) -> str:
+        if bytes_val < 1024:
+            return f"{bytes_val} B"
+        elif bytes_val < 1024 * 1024:
+            return f"{bytes_val / 1024:.1f} KB"
+        elif bytes_val < 1024 * 1024 * 1024:
+            return f"{bytes_val / (1024 * 1024):.1f} MB"
+        else:
+            return f"{bytes_val / (1024 * 1024 * 1024):.2f} GB"
+
+    for j in jobs:
+        p = j.project
+        out_path = j.output_mp4_path or ""
+        exists = os.path.exists(out_path)
+        file_size = os.path.getsize(out_path) if exists else 0
+
+        # Determine direct stream URL
+        video_stream_url = ""
+        if exists:
+            norm_out = os.path.abspath(out_path).replace("\\", "/")
+            if norm_out.startswith(norm_storage):
+                rel = norm_out[len(norm_storage):].lstrip("/")
+                video_stream_url = f"/storage/{rel}"
+            else:
+                video_stream_url = f"/api/projects/{p.id}/download/video" if p else ""
+        elif p:
+            video_stream_url = f"/api/projects/{p.id}/download/video"
+
+        # Clean up title
+        raw_title = p.title if p else "Untitled Production"
+        clean_title = raw_title.split("\n")[0].strip()
+        if len(clean_title) > 90:
+            clean_title = clean_title[:87] + "..."
+
+        # QA Report
+        qa = db.query(QAReport).filter(QAReport.job_id == j.id).first()
+        qa_data = {
+            "passed": qa.passed if qa else True,
+            "duration_match": qa.duration_match if qa else True,
+            "audio_detected": qa.audio_detected if qa else True,
+            "resolution_match": qa.resolution_match if qa else True,
+            "safe_margins_pass": qa.safe_margins_pass if qa else True,
+        }
+
+        # Calculate render duration
+        render_time_seconds = None
+        if j.start_time and j.end_time:
+            render_time_seconds = max(1, int((j.end_time - j.start_time).total_seconds()))
+
+        # Thumbnail path if exists
+        thumb_url = ""
+        if j.thumbnail_path and os.path.exists(j.thumbnail_path):
+            norm_thumb = os.path.abspath(j.thumbnail_path).replace("\\", "/")
+            if norm_thumb.startswith(norm_storage):
+                rel_thumb = norm_thumb[len(norm_storage):].lstrip("/")
+                thumb_url = f"/storage/{rel_thumb}"
+
+        # Get recommended hook from latest script revision if available
+        recommended_hook = None
+        if p and p.script_revisions:
+            latest_rev = sorted(p.script_revisions, key=lambda r: r.revision_number or 0, reverse=True)[0]
+            recommended_hook = latest_rev.recommended_hook
+
+        results.append({
+            "id": j.id,
+            "project_id": p.id if p else j.project_id,
+            "title": clean_title,
+            "raw_title": raw_title,
+            "topic": (p.topic if p and p.topic else clean_title),
+            "status": j.status,
+            "renderer": j.renderer or "hyperframes",
+            "start_time": j.start_time.isoformat() if j.start_time else None,
+            "end_time": j.end_time.isoformat() if j.end_time else None,
+            "render_time_seconds": render_time_seconds,
+            "target_duration": p.target_duration if p else 30,
+            "aspect_ratio": p.aspect_ratio if p else "9:16",
+            "resolution": f"{p.width}x{p.height}" if p and p.width and p.height else ("1080x1920" if (p and p.aspect_ratio == "9:16") else "1920x1080"),
+            "fps": p.fps if p and p.fps else 30,
+            "language": p.language if p else "en",
+            "voice": p.voice if p else "en-US-ChristopherNeural",
+            "visual_style": p.visual_style if p else "cinematic",
+            "caption_style": p.caption_style if p else "word_highlight",
+            "scenes_count": len(p.scenes) if p and p.scenes else 0,
+            "recommended_hook": recommended_hook,
+            "file_exists": exists,
+            "file_size_bytes": file_size,
+            "file_size_formatted": format_size(file_size) if exists else "N/A",
+            "video_stream_url": video_stream_url,
+            "video_download_url": f"/api/projects/{p.id}/download/video" if p else "",
+            "zip_download_url": f"/api/projects/{p.id}/download/zip" if p else "",
+            "thumbnail_url": thumb_url,
+            "qa_passed": qa_data["passed"],
+            "qa_summary": qa_data,
+            "output_mp4_path": out_path
+        })
+
+    return {
+        "total": len(results),
+        "renders": results
+    }
+
+# ============================================================================
 # PROJECT OUTPUT FOLDER & DELIVERABLES DOWNLOAD APIS
 # ============================================================================
 

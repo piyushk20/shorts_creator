@@ -346,8 +346,58 @@ export const api = {
 
   getVectorIconUrl(name: string, collection: string = 'lucide'): string {
     return `/api/media/icon?name=${encodeURIComponent(name)}&collection=${encodeURIComponent(collection)}`;
+  },
+
+  async getSuccessfulRenders(): Promise<SuccessfulRendersResponse> {
+    const res = await fetch('/api/renders');
+    if (!res.ok) throw new Error('Failed to fetch successful renders');
+    return res.json();
   }
 };
+
+export interface SuccessfulRender {
+  id: string;
+  project_id: string;
+  title: string;
+  raw_title: string;
+  topic: string;
+  status: string;
+  renderer: string;
+  start_time?: string;
+  end_time?: string;
+  render_time_seconds?: number;
+  target_duration: number;
+  aspect_ratio: string;
+  resolution: string;
+  fps: number;
+  language: string;
+  voice: string;
+  visual_style: string;
+  caption_style: string;
+  scenes_count: number;
+  recommended_hook?: string;
+  file_exists: boolean;
+  file_size_bytes: number;
+  file_size_formatted: string;
+  video_stream_url: string;
+  video_download_url: string;
+  zip_download_url: string;
+  thumbnail_url?: string;
+  qa_passed: boolean;
+  qa_summary: {
+    passed: boolean;
+    duration_match: boolean;
+    audio_detected: boolean;
+    resolution_match: boolean;
+    safe_margins_pass: boolean;
+  };
+  output_mp4_path?: string;
+}
+
+export interface SuccessfulRendersResponse {
+  total: number;
+  renders: SuccessfulRender[];
+}
 
 export interface TrendingCategory {
   id: string;
