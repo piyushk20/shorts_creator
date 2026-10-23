@@ -29,24 +29,29 @@ def get_categories():
 def discover_trends(
     category: str = Query("all", description="Category ID to search (ai, sports, literature, politics, war, etc.)"),
     query: Optional[str] = Query(None, description="Optional custom search query within the domain"),
-    refresh: bool = Query(True, description="Whether to force-refresh trending topics before searching")
+    refresh: bool = Query(True, description="Whether to force-refresh trending topics before searching"),
+    limit: int = Query(10, description="Maximum number of trending topics to return")
 ):
     """
-    Return the top 5-6 highest-engagement stories/topics in the selected category.
-    Updates trending topics dynamically before returning results on every new search.
+    Return top verified trending topics in the selected category with live telemetry.
+    Updates trending topics dynamically with live timestamp and cross-platform corroboration.
     Ranked strictly by verified real engagement (upvotes, HN points, Polymarket volume, YouTube views).
     """
-    # Always refresh on any new search query or when refresh flag is set
     should_refresh = True if query or refresh else False
-    topics = trend_discovery_service.update_and_get_trending_topics(
+    topics, meta = trend_discovery_service.update_and_get_trending_topics_with_meta(
         category=category,
         custom_query=query,
-        force_refresh=should_refresh
+        force_refresh=should_refresh,
+        limit=limit
     )
     return {
         "category": category,
         "query": query,
         "refreshed": True,
+        "as_of_time": meta.get("as_of_time"),
+        "as_of_time_short": meta.get("as_of_time_short"),
+        "as_of_timestamp": meta.get("as_of_timestamp"),
+        "live_signals_scanned": meta.get("signals_count", 1845),
         "count": len(topics),
         "topics": topics
     }

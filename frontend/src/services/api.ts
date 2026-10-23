@@ -204,11 +204,28 @@ export const api = {
     return res.json();
   },
 
-  async discoverTrends(category: string = 'all', query?: string, refresh: boolean = true): Promise<{ category: string; query?: string; count: number; topics: TrendingTopic[] }> {
+  async discoverTrends(
+    category: string = 'all', 
+    query?: string, 
+    refresh: boolean = true,
+    limit: number = 10
+  ): Promise<{ 
+    category: string; 
+    query?: string; 
+    count: number; 
+    topics: TrendingTopic[];
+    as_of_time?: string;
+    as_of_time_short?: string;
+    as_of_timestamp?: number;
+    live_signals_scanned?: number;
+    refreshed?: boolean;
+  }> {
     const params = new URLSearchParams();
     if (category) params.append('category', category);
     if (query) params.append('query', query);
     if (refresh) params.append('refresh', 'true');
+    params.append('limit', limit.toString());
+    params.append('_t', Date.now().toString()); // prevent browser caching
     const res = await fetch(`/api/trends/discover?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to discover trending topics');
     return res.json();
@@ -421,6 +438,8 @@ export interface TrendingTopic {
   target_duration: number;
   aspect_ratio: string;
   platform: string;
+  as_of_time?: string;
+  as_of_timestamp?: number;
 }
 
 export interface VoxTheme {

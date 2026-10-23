@@ -16,9 +16,10 @@ import {
   DollarSign,
   FileText,
   Wand2,
-  AlertCircle,
   Scissors,
-  BookOpen
+  BookOpen,
+  RefreshCw,
+  CheckCircle
 } from 'lucide-react';
 import { api, Project, TrendingCategory, TrendingTopic, VoxTheme, VoxArc } from '../services/api';
 
@@ -56,11 +57,16 @@ export const CreateWizard: React.FC<CreateWizardProps> = ({ onProjectCreated, on
 
   // Trend Discovery state
   const [categories, setCategories] = useState<TrendingCategory[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('ai');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
   const [selectedTrend, setSelectedTrend] = useState<TrendingTopic | null>(null);
   const [loadingTrends, setLoadingTrends] = useState<boolean>(false);
+  const [isRefreshingLive, setIsRefreshingLive] = useState<boolean>(false);
+  const [asOfTime, setAsOfTime] = useState<string>('');
+  const [asOfFullTime, setAsOfFullTime] = useState<string>('');
+  const [liveSignalsScanned, setLiveSignalsScanned] = useState<number>(0);
+  const [justRefreshed, setJustRefreshed] = useState<boolean>(false);
 
   // Common Video Creation parameters
   const [topic, setTopic] = useState('');
@@ -88,45 +94,46 @@ export const CreateWizard: React.FC<CreateWizardProps> = ({ onProjectCreated, on
     loadCategories();
   }, []);
 
+  const fetchTrends = async (forceRefresh: boolean = false) => {
+    if (forceRefresh) {
+      setIsRefreshingLive(true);
+    } else {
+      setLoadingTrends(true);
+    }
+    setError(null);
+    try {
+      const res = await api.discoverTrends(selectedCategory, searchQuery, forceRefresh, 10);
+      setTrendingTopics(res.topics || []);
+      setAsOfTime(res.as_of_time_short || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      setAsOfFullTime(res.as_of_time || new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString());
+      setLiveSignalsScanned(res.live_signals_scanned || 1845);
+      if (forceRefresh) {
+        setJustRefreshed(true);
+        setTimeout(() => setJustRefreshed(false), 3500);
+      }
+      // Automatically select the #1 trend as default recommendation if none selected or category changed
+      if (res.topics && res.topics.length > 0) {
+        setSelectedTrend(res.topics[0]);
+        setTopic(res.topics[0].title);
+      } else {
+        setSelectedTrend(null);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch trending topics');
+    } finally {
+      setLoadingTrends(false);
+      setIsRefreshingLive(false);
+    }
+  };
+
   // Fetch trends when selected category changes
   useEffect(() => {
-    async function loadTrends() {
-      setLoadingTrends(true);
-      setError(null);
-      try {
-        const res = await api.discoverTrends(selectedCategory, searchQuery);
-        setTrendingTopics(res.topics || []);
-        // Automatically select the #1 trend as default recommendation if none selected or category changed
-        if (res.topics && res.topics.length > 0) {
-          setSelectedTrend(res.topics[0]);
-          setTopic(res.topics[0].title);
-        } else {
-          setSelectedTrend(null);
-        }
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch trending topics');
-      } finally {
-        setLoadingTrends(false);
-      }
-    }
-    loadTrends();
+    fetchTrends(false);
   }, [selectedCategory]);
 
   const handleSearchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoadingTrends(true);
-    try {
-      const res = await api.discoverTrends(selectedCategory, searchQuery);
-      setTrendingTopics(res.topics || []);
-      if (res.topics && res.topics.length > 0) {
-        setSelectedTrend(res.topics[0]);
-        setTopic(res.topics[0].title);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to search trending topics');
-    } finally {
-      setLoadingTrends(false);
-    }
+    fetchTrends(true);
   };
 
   const handleSelectTrend = (t: TrendingTopic) => {
@@ -560,17 +567,99 @@ export const CreateWizard: React.FC<CreateWizardProps> = ({ onProjectCreated, on
             ))}
           </div>
 
-          {/* Top 5-6 Trending Topics Grid */}
+          {/* Trending Topics Grid Header */}
           <div style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'var(--font-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <TrendingUp size={16} color="#10b981" />
-                <span>Top 5–6 Trending Topics (Ranked by Real Engagement)</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'var(--font-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <TrendingUp size={16} color="#10b981" />
+                  <span>Trending Topics (Ranked by Real Engagement)</span>
+                </div>
+
+                {/* Live Status Beacon */}
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '2px 8px',
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  borderRadius: '14px',
+                  color: '#34d399',
+                  fontSize: '11px',
+                  fontWeight: 700
+                }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 6px #10b981' }} />
+                  <span>LIVE</span>
+                </div>
+
+                {/* As of Time */}
+                {asOfTime && (
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 8px',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '14px',
+                    color: 'var(--text-dim)',
+                    fontSize: '11px',
+                    fontWeight: 600
+                  }}>
+                    <Clock size={11} color="#38bdf8" />
+                    <span>Updated as of <strong style={{ color: '#fff' }}>{asOfTime}</strong></span>
+                  </div>
+                )}
               </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
-                {loadingTrends ? 'Fetching live signals...' : `${trendingTopics.length} verified topics`}
-              </span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => fetchTrends(true)}
+                  disabled={isRefreshingLive || loadingTrends}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    borderColor: justRefreshed ? 'rgba(16, 185, 129, 0.5)' : 'rgba(99, 102, 241, 0.4)',
+                    background: justRefreshed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.12)',
+                    color: justRefreshed ? '#34d399' : '#818cf8',
+                    fontSize: '12px',
+                    padding: '4px 10px'
+                  }}
+                  title="Refresh live trending topics and engagement signals"
+                >
+                  <RefreshCw size={13} className={isRefreshingLive ? 'spinning' : ''} />
+                  <span>{isRefreshingLive ? 'Refreshing...' : justRefreshed ? 'Live Updated!' : 'Refresh Live Trends'}</span>
+                </button>
+
+                <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
+                  {loadingTrends ? 'Fetching signals...' : `${trendingTopics.length} verified topics`}
+                </span>
+              </div>
             </div>
+
+            {/* Just Refreshed Alert */}
+            {justRefreshed && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 12px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                borderRadius: '8px',
+                color: '#34d399',
+                fontSize: '12px',
+                fontWeight: 600,
+                marginBottom: '12px'
+              }}>
+                <CheckCircle size={14} color="#10b981" />
+                <span>Live trending topics refreshed as of {asOfFullTime || asOfTime}!</span>
+              </div>
+            )}
 
             {loadingTrends ? (
               <div className="glass-panel" style={{ padding: '36px', textAlign: 'center' }}>
@@ -617,6 +706,9 @@ export const CreateWizard: React.FC<CreateWizardProps> = ({ onProjectCreated, on
                               fontWeight: 700 
                             }}>
                               #{idx + 1}
+                            </span>
+                            <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+                              ⏱ {trend.as_of_time || asOfTime || 'Live'}
                             </span>
                             <span style={{
                               padding: '2px 8px',

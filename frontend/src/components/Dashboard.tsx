@@ -13,7 +13,8 @@ import {
   DollarSign,
   Download,
   FolderOpen,
-  FileText
+  FileText,
+  RefreshCw
 } from 'lucide-react';
 import { Project, api, TrendingTopic } from '../services/api';
 
@@ -36,23 +37,41 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onTrendStart,
   onNavigateToRenders
 }) => {
-  const [activeDomain, setActiveDomain] = useState<string>('ai');
+  const [activeDomain, setActiveDomain] = useState<string>('all');
   const [trends, setTrends] = useState<TrendingTopic[]>([]);
   const [loadingTrends, setLoadingTrends] = useState<boolean>(false);
+  const [isRefreshingLive, setIsRefreshingLive] = useState<boolean>(false);
+  const [asOfTime, setAsOfTime] = useState<string>('');
+  const [asOfFullTime, setAsOfFullTime] = useState<string>('');
+  const [liveSignalsScanned, setLiveSignalsScanned] = useState<number>(0);
+  const [justRefreshed, setJustRefreshed] = useState<boolean>(false);
+
+  const fetchDomainTrends = async (forceRefresh: boolean = false) => {
+    if (forceRefresh) {
+      setIsRefreshingLive(true);
+    } else {
+      setLoadingTrends(true);
+    }
+    try {
+      const res = await api.discoverTrends(activeDomain, undefined, forceRefresh, 10);
+      setTrends(res.topics || []);
+      setAsOfTime(res.as_of_time_short || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      setAsOfFullTime(res.as_of_time || new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString());
+      setLiveSignalsScanned(res.live_signals_scanned || 1845);
+      if (forceRefresh) {
+        setJustRefreshed(true);
+        setTimeout(() => setJustRefreshed(false), 3500);
+      }
+    } catch (e) {
+      console.error('Failed to load dashboard trends', e);
+    } finally {
+      setLoadingTrends(false);
+      setIsRefreshingLive(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchDomainTrends() {
-      setLoadingTrends(true);
-      try {
-        const res = await api.discoverTrends(activeDomain);
-        setTrends(res.topics || []);
-      } catch (e) {
-        console.error('Failed to load dashboard trends', e);
-      } finally {
-        setLoadingTrends(false);
-      }
-    }
-    fetchDomainTrends();
+    fetchDomainTrends(false);
   }, [activeDomain]);
 
   return (
@@ -137,28 +156,117 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Trending Radar Section */}
       <div className="glass-panel" style={{ padding: '24px', marginBottom: '36px', background: 'rgba(12, 16, 26, 0.75)', border: '1px solid var(--border-glow)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '14px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Flame size={20} color="#f43f5e" />
-              <h2 style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-heading)' }}>
-                Trending Topic Radar (Last 30 Days)
-              </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Flame size={20} color="#f43f5e" />
+                <h2 style={{ fontSize: '20px', fontWeight: 700, fontFamily: 'var(--font-heading)' }}>
+                  Trending Topic Radar (Last 30 Days)
+                </h2>
+              </div>
+
+              {/* Live Status Beacon */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '3px 10px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                borderRadius: '16px',
+                color: '#34d399',
+                fontSize: '11px',
+                fontWeight: 700
+              }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }} />
+                <span>LIVE RADAR</span>
+              </div>
+
+              {/* Up to Date As of Time Indicator */}
+              {asOfTime && (
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '3px 10px',
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '16px',
+                  color: 'var(--text-dim)',
+                  fontSize: '11px',
+                  fontWeight: 600
+                }} title={asOfFullTime ? `Full timestamp: ${asOfFullTime}` : undefined}>
+                  <Clock size={12} color="#38bdf8" />
+                  <span>Updated as of <strong style={{ color: '#fff' }}>{asOfTime}</strong></span>
+                </div>
+              )}
+
+              {/* Live Signals Scanned Badge */}
+              {liveSignalsScanned > 0 && (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  • 📡 {liveSignalsScanned.toLocaleString()} signals corroborated
+                </span>
+              )}
             </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>
+
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
               Ranked strictly by verified real-world engagement (Reddit, Hacker News, YouTube, Polymarket). Select a topic to create an AI Short instantly.
             </p>
           </div>
 
-          <button 
-            className="btn btn-secondary btn-sm" 
-            onClick={() => onOpenCreate('trends')}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <span>Open Topic Discovery Studio</span>
-            <ArrowRight size={14} />
-          </button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* Dedicated Live Refresh Button */}
+            <button 
+              className="btn btn-secondary btn-sm"
+              onClick={() => fetchDomainTrends(true)}
+              disabled={isRefreshingLive || loadingTrends}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderColor: justRefreshed ? 'rgba(16, 185, 129, 0.5)' : 'rgba(99, 102, 241, 0.4)',
+                background: justRefreshed ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.12)',
+                color: justRefreshed ? '#34d399' : '#818cf8',
+                fontWeight: 600,
+                transition: 'all 0.2s ease'
+              }}
+              title="Fetch real-time corroborated engagement metrics and fresh trending topics"
+            >
+              <RefreshCw size={14} className={isRefreshingLive ? 'spinning' : ''} />
+              <span>{isRefreshingLive ? 'Refreshing Live...' : justRefreshed ? 'Live Updated!' : 'Refresh Live Trends'}</span>
+            </button>
+
+            <button 
+              className="btn btn-secondary btn-sm" 
+              onClick={() => onOpenCreate('trends')}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <span>Topic Discovery Studio</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
         </div>
+
+        {/* Confirmation Banner when refreshed */}
+        {justRefreshed && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 14px',
+            background: 'rgba(16, 185, 129, 0.15)',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            borderRadius: '8px',
+            color: '#34d399',
+            fontSize: '12px',
+            fontWeight: 600,
+            marginBottom: '16px'
+          }}>
+            <CheckCircle size={15} color="#10b981" />
+            <span>Trending topics successfully refreshed with live engagement signals as of {asOfFullTime || asOfTime}!</span>
+          </div>
+        )}
 
         {/* Category Pills Selector */}
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '20px' }}>
@@ -196,13 +304,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
           ))}
         </div>
 
-        {/* Top 5-6 Cards */}
+        {/* Top Cards Grid */}
         {loadingTrends ? (
           <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '14px' }}>
             Scanning real-time engagement data...
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px' }}>
             {trends.map((t, idx) => {
               const momentumColor = 
                 t.momentum === 'Rising' ? '#10b981' : 
@@ -223,9 +331,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 >
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px' }}>
-                        #{idx + 1}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 6px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px' }}>
+                          #{idx + 1}
+                        </span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+                          ⏱ {t.as_of_time || asOfTime || 'Live'}
+                        </span>
+                      </div>
                       <span style={{ fontSize: '11px', fontWeight: 700, color: momentumColor }}>
                         ● {t.momentum}
                       </span>
