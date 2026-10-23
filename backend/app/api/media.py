@@ -5,10 +5,12 @@ generate custom motion graphic charts, and fetch vector SVG icons
 from zero-auth public APIs (Wikimedia Commons, NASA, QuickChart, Iconify).
 """
 
+import os
 from fastapi import APIRouter, Query, HTTPException, Response
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
+from backend.app.core.config import settings
 from backend.app.services.public_media_engine import public_media_engine
 from backend.app.schemas.render import AssetCandidate
 
@@ -126,3 +128,101 @@ def get_vector_icon(
     if not svg:
         raise HTTPException(status_code=404, detail=f"Icon '{name}' not found in collection '{collection}'")
     return Response(content=svg, media_type="image/svg+xml")
+
+
+# ============================================================================
+# CLOUDFLARE WORKERS AI - FLUX.1-SCHNELL GENERATION ENDPOINTS
+# ============================================================================
+
+from backend.app.services.flux_image_engine import flux_engine
+import uuid
+
+class FluxGenerateRequest(BaseModel):
+    prompt: str
+    visual_style: Optional[str] = "cinematic"
+    aspect_ratio: Optional[str] = "9:16"
+    steps: Optional[int] = 4
+    project_id: Optional[str] = None
+    scene_id: Optional[str] = None
+    animate_motion: Optional[bool] = True
+    motion_preset: Optional[str] = "slow_zoom_in"
+    duration_seconds: Optional[float] = 5.0
+
+
+@router.get("/flux/status")
+def get_flux_status():
+    """
+    Returns the availability and configuration status of Cloudflare FLUX image engine.
+    """
+    return {
+        "configured": flux_engine.is_configured,
+        "model": flux_engine.MODEL,
+        "available_styles": list(flux_engine.STYLE_PRESETS.keys()),
+        "supported_aspect_ratios": ["9:16", "16:9", "1:1"]
+    }
+
+
+@router.post("/flux/generate")
+def generate_flux_image(payload: FluxGenerateRequest):
+    """
+    Generates a matching visual image using Cloudflare Workers AI FLUX.1-schnell
+    and optionally animates it into a 9:16/16:9 MP4 motion clip via FFmpeg.
+    """
+    if not flux_engine.is_configured:
+        raise HTTPException(
+            status_code=400,
+            detail="Cloudflare Workers AI credentials are not configured in .env"
+        )
+
+    # Build consistent prompt matching video aesthetic
+    full_prompt = flux_engine.build_consistent_prompt(
+        scene_description=payload.prompt,
+        visual_style=payload.visual_style or "cinematic"
+    )
+
+    image_id = f"flux-{uuid.uuid4().hex[:10]}"
+    storage_dir = settings.STORAGE_DIR
+
+    if payload.project_id:
+        out_img_rel = f"projects/{payload.project_id}/images/{image_id}.png"
+        out_clip_rel = f"projects/{payload.project_id}/renders/{image_id}_motion.mp4"
+    else:
+        out_img_rel = f"stock_library/flux_{image_id}.png"
+        out_clip_rel = f"stock_library/cache/flux_{image_id}_motion.mp4"
+
+    out_img_abs = os.path.join(storage_dir, out_img_rel)
+    out_clip_abs = os.path.join(storage_dir, out_clip_rel)
+
+    try:
+        flux_engine.generate_and_save(
+            prompt=full_prompt,
+            output_path=out_img_abs,
+            aspect_ratio=payload.aspect_ratio or "9:16",
+            steps=payload.steps or 4
+        )
+
+        motion_clip_url = None
+        if payload.animate_motion:
+            flux_engine.animate_image_to_clip(
+                image_path=out_img_abs,
+                output_clip_path=out_clip_abs,
+                duration=payload.duration_seconds or 5.0,
+                aspect_ratio=payload.aspect_ratio or "9:16",
+                motion_preset=payload.motion_preset or "slow_zoom_in"
+            )
+            motion_clip_url = f"/storage/{out_clip_rel.replace(os.sep, '/')}"
+
+        return {
+            "success": True,
+            "image_id": image_id,
+            "prompt": full_prompt,
+            "original_description": payload.prompt,
+            "visual_style": payload.visual_style,
+            "aspect_ratio": payload.aspect_ratio,
+            "image_url": f"/storage/{out_img_rel.replace(os.sep, '/')}",
+            "motion_clip_url": motion_clip_url,
+            "file_size_bytes": os.path.getsize(out_img_abs) if os.path.exists(out_img_abs) else 0
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

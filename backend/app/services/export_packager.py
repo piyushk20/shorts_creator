@@ -80,6 +80,9 @@ class ExportPackager:
                     rel_p = os.path.relpath(full_p, package_dir)
                     zipf.write(full_p, rel_p)
 
+        # Clean up temporary uncompressed package directory so no duplicate video is left on disk
+        shutil.rmtree(package_dir, ignore_errors=True)
+
         return zip_path
 
 export_packager = ExportPackager()

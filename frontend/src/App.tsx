@@ -4,6 +4,7 @@ import { Dashboard } from './components/Dashboard';
 import { CreateWizard } from './components/CreateWizard';
 import { ProjectWorkspace } from './components/ProjectWorkspace';
 import { SuccessfulRendersTab } from './components/SuccessfulRendersTab';
+import { ShortsClipsTab } from './components/ShortsClipsTab';
 import { SettingsModal } from './components/SettingsModal';
 import { api, Project } from './services/api';
 import './styles/main.css';
@@ -13,8 +14,9 @@ export const App: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createInitialMode, setCreateInitialMode] = useState<'trends' | 'idea' | 'script' | 'vox'>('trends');
-  const [currentView, setCurrentView] = useState<'studio' | 'renders'>('studio');
+  const [currentView, setCurrentView] = useState<'studio' | 'renders' | 'clips'>('studio');
   const [rendersCount, setRendersCount] = useState<number>(0);
+  const [clipsCount, setClipsCount] = useState<number>(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'social' | 'providers' | 'engine'>('social');
   const [loading, setLoading] = useState(true);
@@ -45,9 +47,19 @@ export const App: React.FC = () => {
     }
   };
 
+  const loadClipsCount = async () => {
+    try {
+      const res = await api.getShortsClips();
+      setClipsCount(res.total_clips || 0);
+    } catch (e) {
+      console.error('Failed to load clips count', e);
+    }
+  };
+
   useEffect(() => {
     loadProjects();
     loadRendersCount();
+    loadClipsCount();
   }, []);
 
   const handleSelectProject = async (p: Project) => {
@@ -116,12 +128,15 @@ export const App: React.FC = () => {
       <Navbar 
         currentView={currentView}
         rendersCount={rendersCount}
+        clipsCount={clipsCount}
         onNavigate={(view) => {
           setCurrentView(view);
           setSelectedProject(null);
           setIsCreating(false);
           if (view === 'renders') {
             loadRendersCount();
+          } else if (view === 'clips') {
+            loadClipsCount();
           }
         }}
         onOpenCreate={handleOpenCreate}
@@ -132,6 +147,7 @@ export const App: React.FC = () => {
           setIsCreating(false); 
           loadProjects(); 
           loadRendersCount();
+          loadClipsCount();
         }}
       />
 
@@ -139,7 +155,7 @@ export const App: React.FC = () => {
         {selectedProject ? (
           <ProjectWorkspace 
             project={selectedProject} 
-            onBack={() => { setSelectedProject(null); loadProjects(); loadRendersCount(); }}
+            onBack={() => { setSelectedProject(null); loadProjects(); loadRendersCount(); loadClipsCount(); }}
             onRefresh={() => handleSelectProject(selectedProject)}
           />
         ) : isCreating ? (
@@ -147,6 +163,18 @@ export const App: React.FC = () => {
             initialMode={createInitialMode}
             onProjectCreated={handleProjectCreated}
             onCancel={() => setIsCreating(false)}
+          />
+        ) : currentView === 'clips' ? (
+          <ShortsClipsTab 
+            onSelectProject={async (projId: string) => {
+              try {
+                const full = await api.getProject(projId);
+                setSelectedProject(full);
+              } catch (e) {
+                console.error('Failed to select project from clips tab', e);
+              }
+            }}
+            onOpenCreate={handleOpenCreate}
           />
         ) : currentView === 'renders' ? (
           <SuccessfulRendersTab 
@@ -164,6 +192,7 @@ export const App: React.FC = () => {
           <Dashboard 
             projects={projects}
             rendersCount={rendersCount}
+            clipsCount={clipsCount}
             onSelectProject={handleSelectProject}
             onOpenCreate={handleOpenCreate}
             onQuickStart={handleQuickStart}
@@ -171,6 +200,10 @@ export const App: React.FC = () => {
             onNavigateToRenders={() => {
               setCurrentView('renders');
               loadRendersCount();
+            }}
+            onNavigateToClips={() => {
+              setCurrentView('clips');
+              loadClipsCount();
             }}
           />
         )}

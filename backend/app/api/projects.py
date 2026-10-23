@@ -18,6 +18,7 @@ from backend.app.services.llm_engine import llm_engine
 from backend.app.services.broll_engine import broll_engine
 from backend.app.services.render_engine import render_engine
 from backend.app.services.project_storage import project_storage, sanitize_filename
+from backend.app.services.flux_image_engine import flux_engine
 
 router = APIRouter(prefix="/api", tags=["Projects"])
 
@@ -543,9 +544,27 @@ def list_successful_renders(db: Session = Depends(get_db)):
         else:
             return f"{bytes_val / (1024 * 1024 * 1024):.2f} GB"
 
+    seen_projects = set()
     for j in jobs:
+        proj_id = j.project_id
+        if not proj_id or proj_id in seen_projects:
+            continue
+        seen_projects.add(proj_id)
+
         p = j.project
-        out_path = j.output_mp4_path or ""
+        safe_title = sanitize_filename(p.title) if p else "video"
+        output_dir = project_storage.get_output_dir(proj_id)
+
+        # Primary check: canonical single video output/<safe_title>.mp4
+        final_canonical = os.path.join(output_dir, f"{safe_title}.mp4")
+        if os.path.exists(final_canonical):
+            out_path = final_canonical
+        elif os.path.exists(output_dir):
+            mp4s = [os.path.join(output_dir, f) for f in os.listdir(output_dir) if f.endswith(".mp4")]
+            out_path = mp4s[0] if mp4s else (j.output_mp4_path or "")
+        else:
+            out_path = j.output_mp4_path or ""
+
         exists = os.path.exists(out_path)
         file_size = os.path.getsize(out_path) if exists else 0
 
@@ -584,7 +603,13 @@ def list_successful_renders(db: Session = Depends(get_db)):
 
         # Thumbnail path if exists
         thumb_url = ""
-        if j.thumbnail_path and os.path.exists(j.thumbnail_path):
+        thumb_canonical = os.path.join(output_dir, "cover_thumbnail.jpg")
+        if os.path.exists(thumb_canonical):
+            norm_thumb = os.path.abspath(thumb_canonical).replace("\\", "/")
+            if norm_thumb.startswith(norm_storage):
+                rel_thumb = norm_thumb[len(norm_storage):].lstrip("/")
+                thumb_url = f"/storage/{rel_thumb}"
+        elif j.thumbnail_path and os.path.exists(j.thumbnail_path):
             norm_thumb = os.path.abspath(j.thumbnail_path).replace("\\", "/")
             if norm_thumb.startswith(norm_storage):
                 rel_thumb = norm_thumb[len(norm_storage):].lstrip("/")
@@ -654,7 +679,7 @@ def get_project_output_info(project_id: str, db: Session = Depends(get_db)):
 @router.get("/projects/{project_id}/download/video")
 def download_final_video(project_id: str, db: Session = Depends(get_db)):
     """
-    Directly downloads the rendered final video MP4 with a clean, project-titled filename.
+    Directly downloads the single rendered final video MP4 with a clean, project-titled filename.
     """
     project_id = validate_id(project_id, "project_id")
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -664,18 +689,24 @@ def download_final_video(project_id: str, db: Session = Depends(get_db)):
     safe_title = sanitize_filename(project.title)
     output_dir = project_storage.get_output_dir(project_id)
 
-    # 1. Check canonical output/final_video.mp4 or named copy
-    candidates = [
-        os.path.join(output_dir, "final_video.mp4"),
-        os.path.join(output_dir, f"{safe_title}.mp4")
-    ]
-    for c in candidates:
-        if os.path.exists(c):
-            return FileResponse(
-                path=c,
-                filename=f"{safe_title}.mp4",
-                media_type="video/mp4"
-            )
+    # 1. Check canonical output/<safe_title>.mp4
+    named_mp4 = os.path.join(output_dir, f"{safe_title}.mp4")
+    if os.path.exists(named_mp4):
+        return FileResponse(
+            path=named_mp4,
+            filename=f"{safe_title}.mp4",
+            media_type="video/mp4"
+        )
+
+    # 2. Check any single mp4 in output/
+    if os.path.exists(output_dir):
+        for f in os.listdir(output_dir):
+            if f.endswith(".mp4"):
+                return FileResponse(
+                    path=os.path.join(output_dir, f),
+                    filename=f"{safe_title}.mp4",
+                    media_type="video/mp4"
+                )
 
     # 2. Check latest render job
     last_job = db.query(RenderJob).filter(RenderJob.project_id == project_id).order_by(RenderJob.start_time.desc()).first()
@@ -802,4 +833,290 @@ def open_project_folder(project_id: str, db: Session = Depends(get_db)):
 
     res = project_storage.open_folder_in_os(project_id)
     return res
+
+
+# ============================================================================
+# SCRIPT-MATCHED AI VISUAL GENERATION & WORKFLOW GATE ENDPOINTS
+# ============================================================================
+
+def _inspect_scene_visual(scene: Scene, project: Project) -> Dict[str, Any]:
+    visuals_dir = os.path.join(settings.STORAGE_DIR, "projects", project.id, "visuals")
+    img_name = f"scene_{scene.order}_flux.png"
+    clip_name = f"scene_{scene.order}_motion.mp4"
+    img_path = os.path.join(visuals_dir, img_name)
+    clip_path = os.path.join(visuals_dir, clip_name)
+
+    has_img = os.path.exists(img_path) and os.path.getsize(img_path) > 1024
+    has_clip = os.path.exists(clip_path) and os.path.getsize(clip_path) > 1024
+
+    # Check if selected_asset_id points to another existing file
+    custom_clip_url = None
+    if scene.selected_asset_id:
+        clean = scene.selected_asset_id.replace("file:///", "").replace("/", os.sep)
+        for cand in [clean, os.path.join(settings.STORAGE_DIR, clean)]:
+            if os.path.exists(cand) and os.path.getsize(cand) > 1024:
+                has_clip = True
+                norm_cand = os.path.abspath(cand)
+                norm_storage = os.path.abspath(settings.STORAGE_DIR)
+                if norm_cand.startswith(norm_storage):
+                    rel = os.path.relpath(norm_cand, norm_storage).replace(os.sep, "/")
+                    custom_clip_url = f"/storage/{rel}"
+                break
+
+    img_rel = f"projects/{project.id}/visuals/{img_name}".replace(os.sep, "/")
+    clip_rel = f"projects/{project.id}/visuals/{clip_name}".replace(os.sep, "/")
+
+    prompt = flux_engine.build_consistent_prompt(
+        scene_description=scene.visual_description or scene.narration,
+        visual_style=project.visual_style or "cinematic"
+    )
+
+    return {
+        "scene_id": scene.id,
+        "order": scene.order,
+        "role": scene.role,
+        "narration": scene.narration,
+        "visual_description": scene.visual_description or "",
+        "prompt": prompt,
+        "has_matching_image": has_img,
+        "has_motion_clip": has_clip,
+        "image_url": f"/storage/{img_rel}" if has_img else None,
+        "motion_clip_url": custom_clip_url or (f"/storage/{clip_rel}" if has_clip else None),
+        "selected_asset_id": scene.selected_asset_id,
+        "is_ready": bool(has_img or has_clip)
+    }
+
+
+@router.get("/projects/{project_id}/visuals-status")
+def get_project_visuals_status(project_id: str, db: Session = Depends(get_db)):
+    """
+    Returns the script-matching visual status for each scene in the project,
+    verifying if matching AI images and animated clips have been generated.
+    """
+    project_id = validate_id(project_id, "project_id")
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order.asc()).all()
+    scene_statuses = [_inspect_scene_visual(s, project) for s in scenes]
+    ready_count = sum(1 for s in scene_statuses if s["is_ready"])
+
+    return {
+        "project_id": project.id,
+        "project_title": project.title,
+        "visual_style": project.visual_style or "cinematic",
+        "aspect_ratio": project.aspect_ratio or "9:16",
+        "total_scenes": len(scenes),
+        "matched_scenes_count": ready_count,
+        "all_visuals_ready": (ready_count == len(scenes) and len(scenes) > 0),
+        "scenes": scene_statuses
+    }
+
+
+@router.post("/projects/{project_id}/generate-matching-images")
+def generate_project_matching_images(
+    project_id: str,
+    data: Optional[Dict[str, Any]] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Batch generates script-matching AI visuals using Cloudflare Workers AI FLUX.1-schnell
+    for all scenes in the project, animates them with Ken Burns pan/zoom into 30fps clips,
+    and updates the project's selected assets before rendering.
+    """
+    project_id = validate_id(project_id, "project_id")
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not flux_engine.is_configured:
+        raise HTTPException(
+            status_code=400,
+            detail="Cloudflare Workers AI credentials are not configured in .env"
+        )
+
+    data = data or {}
+    force_regenerate = bool(data.get("force_regenerate", False))
+    steps = int(data.get("steps", 4))
+    motion_preset = data.get("motion_preset", "slow_zoom_in")
+    target_scene_ids = data.get("scene_ids")
+    visual_style = data.get("visual_style") or project.visual_style or "cinematic"
+
+    db_scenes = db.query(Scene).filter(Scene.project_id == project_id).order_by(Scene.order.asc()).all()
+    if not db_scenes:
+        raise HTTPException(status_code=400, detail="Project has no scenes to generate visuals for")
+
+    visuals_dir = os.path.join(settings.STORAGE_DIR, "projects", project_id, "visuals")
+    os.makedirs(visuals_dir, exist_ok=True)
+
+    results = []
+
+    for s in db_scenes:
+        if target_scene_ids and s.id not in target_scene_ids:
+            results.append(_inspect_scene_visual(s, project))
+            continue
+
+        img_name = f"scene_{s.order}_flux.png"
+        clip_name = f"scene_{s.order}_motion.mp4"
+        img_path = os.path.join(visuals_dir, img_name)
+        clip_path = os.path.join(visuals_dir, clip_name)
+
+        already_exists = (
+            os.path.exists(img_path) and os.path.getsize(img_path) > 1024 and
+            os.path.exists(clip_path) and os.path.getsize(clip_path) > 1024
+        )
+
+        prompt = flux_engine.build_consistent_prompt(
+            scene_description=s.visual_description or s.narration,
+            visual_style=visual_style
+        )
+
+        if force_regenerate or not already_exists:
+            # 1. Synthesize image matching script via FLUX.1-schnell
+            flux_engine.generate_and_save(
+                prompt=prompt,
+                output_path=img_path,
+                aspect_ratio=project.aspect_ratio,
+                steps=steps
+            )
+
+            # 2. Convert to smooth Ken Burns animated clip matching scene duration
+            dur = max(2.5, float(s.actual_duration or s.estimated_duration or 5.0))
+            flux_engine.animate_image_to_clip(
+                image_path=img_path,
+                output_clip_path=clip_path,
+                duration=dur,
+                aspect_ratio=project.aspect_ratio,
+                motion_preset=motion_preset
+            )
+
+        # 3. Associate animated clip with scene
+        s.selected_asset_id = clip_path
+
+        # 4. Register Asset & Provenance records
+        asset_id = f"flux-scene-{s.id}"
+        existing_asset = db.query(Asset).filter(Asset.id == asset_id).first()
+        if not existing_asset:
+            db_asset = Asset(
+                id=asset_id,
+                provider="cloudflare_flux",
+                provider_asset_id=f"flux-{s.order}",
+                source_url="ai://cloudflare/flux-1-schnell",
+                local_path=clip_path,
+                orientation="vertical" if project.aspect_ratio == "9:16" else "horizontal",
+                mime_type="video/mp4"
+            )
+            db.add(db_asset)
+
+        existing_prov = db.query(AssetProvenance).filter(
+            AssetProvenance.project_id == project_id,
+            AssetProvenance.scene_id == s.id
+        ).first()
+        if not existing_prov:
+            prov = AssetProvenance(
+                id=str(uuid.uuid4()),
+                asset_id=asset_id,
+                project_id=project_id,
+                scene_id=s.id,
+                rights_status="VERIFIED_FOR_INTENDED_USE",
+                creator="Cloudflare FLUX.1-schnell",
+                license_type="AI Generated / Commercial Free",
+                attribution_text=f"AI visual synthesized matching script: {prompt[:80]}"
+            )
+            db.add(prov)
+
+        results.append(_inspect_scene_visual(s, project))
+
+    db.commit()
+
+    ready_count = sum(1 for s in results if s["is_ready"])
+
+    return {
+        "success": True,
+        "project_id": project_id,
+        "visual_style": visual_style,
+        "aspect_ratio": project.aspect_ratio,
+        "total_scenes": len(db_scenes),
+        "matched_scenes_count": ready_count,
+        "all_visuals_ready": (ready_count == len(db_scenes)),
+        "scenes": results
+    }
+
+
+@router.post("/projects/{project_id}/scenes/{scene_id}/generate-matching-image")
+def generate_single_scene_matching_image(
+    project_id: str,
+    scene_id: str,
+    data: Optional[Dict[str, Any]] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Generates or regenerates a script-matching AI visual for an individual scene.
+    """
+    project_id = validate_id(project_id, "project_id")
+    scene_id = validate_id(scene_id, "scene_id")
+
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    scene = db.query(Scene).filter(Scene.id == scene_id, Scene.project_id == project_id).first()
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    if not flux_engine.is_configured:
+        raise HTTPException(
+            status_code=400,
+            detail="Cloudflare Workers AI credentials are not configured in .env"
+        )
+
+    data = data or {}
+    steps = int(data.get("steps", 4))
+    motion_preset = data.get("motion_preset", "slow_zoom_in")
+    custom_prompt = data.get("prompt")
+    visual_style = data.get("visual_style") or project.visual_style or "cinematic"
+
+    visuals_dir = os.path.join(settings.STORAGE_DIR, "projects", project_id, "visuals")
+    os.makedirs(visuals_dir, exist_ok=True)
+
+    img_name = f"scene_{scene.order}_flux.png"
+    clip_name = f"scene_{scene.order}_motion.mp4"
+    img_path = os.path.join(visuals_dir, img_name)
+    clip_path = os.path.join(visuals_dir, clip_name)
+
+    prompt = custom_prompt or flux_engine.build_consistent_prompt(
+        scene_description=scene.visual_description or scene.narration,
+        visual_style=visual_style
+    )
+
+    # 1. Generate image
+    flux_engine.generate_and_save(
+        prompt=prompt,
+        output_path=img_path,
+        aspect_ratio=project.aspect_ratio,
+        steps=steps
+    )
+
+    # 2. Animate to Ken-Burns clip
+    dur = max(2.5, float(scene.actual_duration or scene.estimated_duration or 5.0))
+    flux_engine.animate_image_to_clip(
+        image_path=img_path,
+        output_clip_path=clip_path,
+        duration=dur,
+        aspect_ratio=project.aspect_ratio,
+        motion_preset=motion_preset
+    )
+
+    # 3. Associate with scene
+    scene.selected_asset_id = clip_path
+    db.commit()
+
+    return {
+        "success": True,
+        "project_id": project_id,
+        "scene_id": scene_id,
+        "visual_info": _inspect_scene_visual(scene, project)
+    }
+
 

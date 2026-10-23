@@ -15,6 +15,7 @@ from backend.app.services.broll_engine import broll_engine
 from backend.app.services.qa_gate import qa_gate
 from backend.app.services.export_packager import export_packager
 from backend.app.services.project_storage import project_storage
+from backend.app.services.social_branding_service import social_branding_service
 
 class RenderEngine:
     def __init__(self):
@@ -83,6 +84,22 @@ class RenderEngine:
 
             for idx, scene in enumerate(scenes):
                 scene_dur = scene.actual_duration_seconds or scene.estimated_duration_seconds
+
+                # Direct check: if scene already has an approved or generated local video clip, use it directly
+                direct_clip = self._check_direct_asset(scene)
+                if direct_clip:
+                    scene_clips.append(direct_clip)
+                    provenance_records.append({
+                        "asset_id": f"direct-asset-{idx}",
+                        "scene_id": scene.scene_id,
+                        "provider": "studio_flux_kenburns",
+                        "source_url": direct_clip,
+                        "rights_status": "VERIFIED_FOR_INTENDED_USE",
+                        "license_type": "CreatorFlow Studio Generated",
+                        "creator": "CreatorFlow Studio"
+                    })
+                    continue
+
                 candidates = await broll_engine.search_candidates(
                     scene_id=scene.scene_id,
                     queries=scene.search_queries or [scene.visual_description],
@@ -160,17 +177,32 @@ class RenderEngine:
                 )
                 final_audio_path = mixed_audio_path
 
-            # Stage 6: Final MP4 Packaging with Burned-In Captions
-            self._update_stage(job_id, "RENDERING", 85, "Rendering final H.264/AAC MP4 with burned subtitles")
+            # Stage 6: Final MP4 Packaging with Burned-In Captions & Social Outro Card
+            self._update_stage(job_id, "RENDERING", 85, "Rendering final H.264/AAC MP4 with burned subtitles and social outro branding")
             final_mp4_path = os.path.join(renders_dir, f"{job_id}_final.mp4")
             thumbnail_path = os.path.join(renders_dir, f"{job_id}_thumbnail.jpg")
+
+            # Generate social branding outro card if enabled
+            outro_card_png = None
+            try:
+                branding_cfg = social_branding_service.get_branding()
+                if branding_cfg.get("auto_apply_outro", True):
+                    card_file = os.path.join(renders_dir, f"{job_id}_social_outro.png")
+                    outro_card_png = social_branding_service.generate_outro_card_png(
+                        output_path=card_file,
+                        width=width,
+                        height=height
+                    )
+            except Exception as e:
+                print(f"[RenderEngine] Warning: Could not generate social outro card: {e}")
 
             self._render_final_mp4(
                 video_input=raw_video_path,
                 audio_input=final_audio_path,
                 ass_subtitles=ass_path if burn_subtitles else None,
                 output_mp4=final_mp4_path,
-                total_duration=total_duration
+                total_duration=total_duration,
+                outro_card_png=outro_card_png
             )
 
             self._generate_thumbnail(final_mp4_path, thumbnail_path)
@@ -214,13 +246,21 @@ class RenderEngine:
                 zip_path=zip_package
             )
 
+            # Purge intermediate compositions, audio mix beds, and temporary render files
+            project_storage.cleanup_project_artifacts(project_id, keep_safe_title=deployed["safe_title"])
+
+            # Single canonical deliverables references
+            canonical_video_path = deployed.get("final_video_path") or os.path.join(deployed["output_dir"], f"{deployed['safe_title']}.mp4")
+            canonical_thumb_path = os.path.join(deployed["output_dir"], "cover_thumbnail.jpg")
+            canonical_zip_path = os.path.join(deployed["output_dir"], f"{deployed['safe_title']}_export.zip")
+
             # Mark Complete
             self.jobs[job_id]["status"] = "COMPLETED"
             self.jobs[job_id]["progress"] = 100
             self.jobs[job_id]["current_stage"] = "READY_FOR_REVIEW"
-            self.jobs[job_id]["output_mp4_path"] = final_mp4_path
-            self.jobs[job_id]["thumbnail_path"] = thumbnail_path
-            self.jobs[job_id]["zip_package"] = zip_package
+            self.jobs[job_id]["output_mp4_path"] = canonical_video_path
+            self.jobs[job_id]["thumbnail_path"] = canonical_thumb_path
+            self.jobs[job_id]["zip_package"] = canonical_zip_path
             self.jobs[job_id]["qa_report"] = qa_result.model_dump()
             self.jobs[job_id]["output_directory"] = deployed["output_dir"]
             self.jobs[job_id]["safe_title"] = deployed["safe_title"]
@@ -244,11 +284,36 @@ class RenderEngine:
             self.jobs[job_id]["stage_description"] = description
             print(f"[RenderEngine] Job {job_id}: [{progress}%] {stage} - {description}")
 
+    def _check_direct_asset(self, scene) -> Optional[str]:
+        if not scene or not scene.selected_asset_id:
+            return None
+        raw_sel = scene.selected_asset_id.replace("file:///", "").replace("/", os.sep)
+        candidates_paths = [
+            raw_sel,
+            os.path.abspath(raw_sel),
+            os.path.join(settings.STORAGE_DIR, raw_sel)
+        ]
+        for p in candidates_paths:
+            if os.path.exists(p) and os.path.getsize(p) > 1024:
+                return os.path.abspath(p)
+        return None
+
     def _resolve_local_asset(self, candidate, all_candidates, scene, aspect_ratio: str, duration: float, idx: int) -> str:
-        if scene and scene.selected_asset_id:
-            raw_sel = scene.selected_asset_id.replace("file:///", "").replace("/", os.sep)
-            if os.path.exists(raw_sel) and os.path.getsize(raw_sel) > 1024:
-                return os.path.abspath(raw_sel)
+        direct = self._check_direct_asset(scene)
+        if direct:
+            if direct.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+                motion_clip = direct.rsplit(".", 1)[0] + f"_motion_{int(duration)}s.mp4"
+                if not os.path.exists(motion_clip) or os.path.getsize(motion_clip) < 1024:
+                    from backend.app.services.flux_image_engine import flux_engine
+                    flux_engine.animate_image_to_clip(
+                        image_path=direct,
+                        output_clip_path=motion_clip,
+                        duration=duration,
+                        aspect_ratio=aspect_ratio,
+                        motion_preset="slow_zoom_in"
+                    )
+                return motion_clip
+            return direct
 
         candidates_to_try = [candidate] if candidate else []
         if all_candidates:
@@ -263,11 +328,54 @@ class RenderEngine:
                     abs_path = os.path.abspath(raw_path)
                     storage_abs = os.path.abspath(settings.STORAGE_DIR)
                     if abs_path.startswith(storage_abs) and os.path.exists(abs_path) and os.path.getsize(abs_path) > 1024:
+                        if abs_path.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+                            from backend.app.services.flux_image_engine import flux_engine
+                            motion_clip = abs_path.rsplit(".", 1)[0] + f"_motion_{int(duration)}s.mp4"
+                            if not os.path.exists(motion_clip) or os.path.getsize(motion_clip) < 1024:
+                                flux_engine.animate_image_to_clip(
+                                    image_path=abs_path,
+                                    output_clip_path=motion_clip,
+                                    duration=duration,
+                                    aspect_ratio=aspect_ratio,
+                                    motion_preset="slow_zoom_in"
+                                )
+                            return motion_clip
                         return abs_path
                 elif cand.download_url.startswith(("http://", "https://")):
                     downloaded = broll_engine.download_asset_on_demand(cand.download_url)
                     if downloaded and os.path.exists(downloaded) and os.path.getsize(downloaded) > 1024:
                         return downloaded
+
+        # If candidates fail, automatically synthesize script-matching visual via FLUX.1-schnell
+        from backend.app.services.flux_image_engine import flux_engine
+        if flux_engine.is_configured and (scene.visual_description or scene.narration):
+            try:
+                visuals_dir = os.path.join(settings.STORAGE_DIR, "stock_library", "flux_generated")
+                os.makedirs(visuals_dir, exist_ok=True)
+                img_path = os.path.join(visuals_dir, f"scene_{scene.scene_id}_flux.png")
+                clip_path = os.path.join(visuals_dir, f"scene_{scene.scene_id}_motion.mp4")
+                if not os.path.exists(clip_path) or os.path.getsize(clip_path) < 1024:
+                    prompt = flux_engine.build_consistent_prompt(
+                        scene_description=scene.visual_description or scene.narration,
+                        visual_style="cinematic"
+                    )
+                    flux_engine.generate_and_save(
+                        prompt=prompt,
+                        output_path=img_path,
+                        aspect_ratio=aspect_ratio,
+                        steps=4
+                    )
+                    flux_engine.animate_image_to_clip(
+                        image_path=img_path,
+                        output_clip_path=clip_path,
+                        duration=duration,
+                        aspect_ratio=aspect_ratio,
+                        motion_preset="slow_zoom_in"
+                    )
+                if os.path.exists(clip_path) and os.path.getsize(clip_path) > 1024:
+                    return clip_path
+            except Exception as e:
+                print(f"[RenderEngine] Warning: Auto-generating script-matching visual failed: {e}")
 
         # If online retrieval didn't return a candidate, prioritize real cached B-roll footage
         cache_dir = os.path.join(settings.STORAGE_DIR, "stock_library", "cache")
@@ -318,7 +426,8 @@ class RenderEngine:
 
         for idx, (clip, scene) in enumerate(zip(clip_paths, scenes)):
             dur = scene.actual_duration_seconds or scene.estimated_duration_seconds
-            p_clip = os.path.join(temp_dir, f"segment_{idx}_{width}x{height}.mp4")
+            # Use unique scene_comp prefix to prevent truncating the input clip if it shares a name
+            p_clip = os.path.join(temp_dir, f"scene_comp_{idx}_{width}x{height}.mp4")
 
             vf = (
                 f"scale={width}:{height}:force_original_aspect_ratio=increase,"
@@ -342,7 +451,7 @@ class RenderEngine:
                 "-an",
                 p_clip
             ]
-            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120, check=True)
             processed_clips.append(p_clip)
 
         concat_txt = os.path.join(temp_dir, "concat_list.txt")
@@ -395,7 +504,8 @@ class RenderEngine:
         audio_input: str,
         ass_subtitles: Optional[str],
         output_mp4: str,
-        total_duration: float
+        total_duration: float,
+        outro_card_png: Optional[str] = None
     ):
         cmd = [
             settings.FFMPEG_PATH,
@@ -404,10 +514,33 @@ class RenderEngine:
             "-i", audio_input
         ]
 
-        if ass_subtitles and os.path.exists(ass_subtitles):
-            clean_sub = escape_ffmpeg_path(ass_subtitles)
+        has_card = bool(outro_card_png and os.path.exists(outro_card_png))
+        has_sub = bool(ass_subtitles and os.path.exists(ass_subtitles))
+
+        if has_card:
+            cmd.extend(["-loop", "1", "-i", outro_card_png])
+
+        start_t = max(0.0, total_duration - 4.5)
+        clean_sub = escape_ffmpeg_path(ass_subtitles) if has_sub else ""
+
+        if has_card and has_sub:
+            filter_complex = (
+                f"[2:v]format=rgba,fade=t=in:st={start_t:.2f}:d=0.35:alpha=1[card];"
+                f"[0:v][card]overlay=0:0:enable='gte(t,{start_t:.2f})'[v1];"
+                f"[v1]ass='{clean_sub}'[v_out]"
+            )
+            cmd.extend(["-filter_complex", filter_complex, "-map", "[v_out]", "-map", "1:a"])
+        elif has_card and not has_sub:
+            filter_complex = (
+                f"[2:v]format=rgba,fade=t=in:st={start_t:.2f}:d=0.35:alpha=1[card];"
+                f"[0:v][card]overlay=0:0:enable='gte(t,{start_t:.2f})'[v_out]"
+            )
+            cmd.extend(["-filter_complex", filter_complex, "-map", "[v_out]", "-map", "1:a"])
+        elif has_sub and not has_card:
             vf = f"ass='{clean_sub}'"
-            cmd.extend(["-vf", vf])
+            cmd.extend(["-vf", vf, "-map", "0:v", "-map", "1:a"])
+        else:
+            cmd.extend(["-map", "0:v", "-map", "1:a"])
 
         cmd.extend([
             "-c:v", "libx264",
@@ -424,7 +557,7 @@ class RenderEngine:
             "-movflags", "+faststart",
             output_mp4
         ])
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=240, check=True)
 
     def _generate_thumbnail(self, video_path: str, thumbnail_path: str):
         cmd = [

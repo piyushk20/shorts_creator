@@ -3,9 +3,9 @@ import {
   Play, Download, CheckCircle, RefreshCw, Layers, Film, 
   Volume2, ShieldCheck, FileText, ChevronRight, Sparkles, Check, ArrowLeft, 
   AlertCircle, Eye, EyeOff, Music, Sliders, Smartphone, CheckCircle2, Clapperboard, Mic,
-  Folder, FolderOpen, Copy, HardDrive, ExternalLink, Search
+  Folder, FolderOpen, Copy, HardDrive, ExternalLink, Search, Wand2, Image as ImageIcon, Video as VideoIcon
 } from 'lucide-react';
-import { api, Project, Scene, AssetCandidate, RenderJob, ProjectOutputInfo } from '../services/api';
+import { api, Project, Scene, AssetCandidate, RenderJob, ProjectOutputInfo, ProjectVisualsStatus, SceneVisualStatus } from '../services/api';
 
 interface ProjectWorkspaceProps {
   project: Project;
@@ -21,6 +21,14 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
   const [candidates, setCandidates] = useState<AssetCandidate[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [isScriptApproved, setIsScriptApproved] = useState(project.is_script_approved || false);
+
+  // Script-to-Image Matching State (Cloudflare FLUX.1-schnell)
+  const [visualsStatus, setVisualsStatus] = useState<ProjectVisualsStatus | null>(null);
+  const [generatingVisuals, setGeneratingVisuals] = useState<boolean>(false);
+  const [generatingSceneId, setGeneratingSceneId] = useState<string | null>(null);
+  const [visualsProgress, setVisualsProgress] = useState<string>('');
+  const [showMotionVideo, setShowMotionVideo] = useState<boolean>(false);
+  const [showStockAccordion, setShowStockAccordion] = useState<boolean>(false);
 
   // Render Job State
   const [activeJob, setActiveJob] = useState<RenderJob | null>(project.latest_job || null);
@@ -42,8 +50,18 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
     api.getProjectOutputInfo(project.id).then(setOutputInfo).catch(console.error);
   };
 
+  const fetchVisualsStatus = async () => {
+    try {
+      const res = await api.getProjectVisualsStatus(project.id);
+      setVisualsStatus(res);
+    } catch (e) {
+      console.error('Failed to get visuals status', e);
+    }
+  };
+
   useEffect(() => {
     fetchOutputInfo();
+    fetchVisualsStatus();
   }, [project.id, activeTab]);
 
   useEffect(() => {
@@ -51,7 +69,6 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
       if (tracks.length > 0) setBgmList(tracks);
     });
   }, []);
-
 
   const [brollSearchQuery, setBrollSearchQuery] = useState('');
 
@@ -68,7 +85,6 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
     }
   };
 
-  // Load B-roll candidates when active scene changes or broll tab opened
   useEffect(() => {
     if (scenes.length > 0 && activeTab === 'broll') {
       setBrollSearchQuery('');
@@ -76,7 +92,6 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
     }
   }, [activeSceneIdx, activeTab, project.id]);
 
-  // Polling active render job
   useEffect(() => {
     let interval: any;
     if (isRendering && activeJob) {
@@ -111,6 +126,51 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
     setScenes(updated);
   };
 
+  const handleGenerateAllMatchingVisuals = async (force: boolean = false) => {
+    try {
+      setGeneratingVisuals(true);
+      setVisualsProgress('Synthesizing script-matching AI visuals via FLUX.1-schnell & generating 30fps Ken Burns motion clips...');
+      const res = await api.generateMatchingVisuals(project.id, {
+        force_regenerate: force,
+        steps: 4,
+        motion_preset: 'slow_zoom_in'
+      });
+      setVisualsStatus(res);
+      const updatedProject = await api.getProject(project.id);
+      if (updatedProject.scenes) {
+        setScenes(updatedProject.scenes);
+      }
+      setGeneratingVisuals(false);
+      setVisualsProgress('');
+      return res;
+    } catch (e: any) {
+      setGeneratingVisuals(false);
+      setVisualsProgress('');
+      alert(e.message || 'Failed to generate script-matching visuals');
+      throw e;
+    }
+  };
+
+  const handleGenerateSingleVisual = async (sceneId: string, customPrompt?: string) => {
+    try {
+      setGeneratingSceneId(sceneId);
+      await api.generateSingleSceneMatchingVisual(project.id, sceneId, {
+        prompt: customPrompt,
+        steps: 4,
+        motion_preset: 'slow_zoom_in'
+      });
+      await fetchVisualsStatus();
+      const updatedProject = await api.getProject(project.id);
+      if (updatedProject.scenes) {
+        setScenes(updatedProject.scenes);
+      }
+      setGeneratingSceneId(null);
+    } catch (e: any) {
+      setGeneratingSceneId(null);
+      alert(e.message || 'Failed to generate visual for scene');
+    }
+  };
+
   const handleSaveAndApproveScript = async () => {
     try {
       await api.updateScript(project.id, {
@@ -127,6 +187,26 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
 
   const handleStartRender = async () => {
     try {
+      // Workflow Enforcement: Ensure script-matching images are created before output render
+      if (visualsStatus && !visualsStatus.all_visuals_ready) {
+        setGeneratingVisuals(true);
+        setActiveTab('render');
+        setVisualsProgress('Workflow Gate: Synthesizing script-matching AI visuals before rendering output...');
+        await api.generateMatchingVisuals(project.id, {
+          force_regenerate: false,
+          steps: 4,
+          motion_preset: 'slow_zoom_in'
+        });
+        const st = await api.getProjectVisualsStatus(project.id);
+        setVisualsStatus(st);
+        const updatedProject = await api.getProject(project.id);
+        if (updatedProject.scenes) {
+          setScenes(updatedProject.scenes);
+        }
+        setGeneratingVisuals(false);
+        setVisualsProgress('');
+      }
+
       setIsRendering(true);
       setActiveTab('render');
       // Ensure all scene state and chosen assets are persisted first
@@ -150,9 +230,12 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
         caption_position: captionPosition
       });
       setActiveJob(job);
-    } catch (e) {
+    } catch (e: any) {
       setIsRendering(false);
+      setGeneratingVisuals(false);
+      setVisualsProgress('');
       console.error(e);
+      alert(e.message || 'Render failed');
     }
   };
 
@@ -203,7 +286,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
             onClick={() => setActiveTab('broll')}
           >
             <span className="step-number">2</span>
-            <span>B-Roll Footage ({scenes.length})</span>
+            <span>Script Visuals ({visualsStatus?.matched_scenes_count || 0}/{scenes.length})</span>
           </button>
 
           <button 
@@ -239,10 +322,20 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
             id="btn-render-video-top"
             className="btn btn-primary btn-sm" 
             onClick={handleStartRender}
-            disabled={isRendering}
+            disabled={isRendering || generatingVisuals}
+            style={{
+              background: (!visualsStatus?.all_visuals_ready && !isRendering) ? 'linear-gradient(135deg, #f59e0b, #d97706)' : undefined,
+              boxShadow: (!visualsStatus?.all_visuals_ready && !isRendering) ? '0 0 16px rgba(245, 158, 11, 0.4)' : undefined
+            }}
           >
             <Sparkles size={15} />
-            <span>{isRendering ? 'Processing...' : 'Render MP4'}</span>
+            <span>
+              {generatingVisuals 
+                ? 'Creating Matching Images...' 
+                : isRendering 
+                  ? 'Rendering Output...' 
+                  : (!visualsStatus?.all_visuals_ready ? 'Create Images & Render' : 'Render MP4 Output')}
+            </span>
           </button>
         </div>
       </div>
@@ -411,209 +504,442 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
         </div>
       )}
 
-      {/* STEP 2: B-ROLL FOOTAGE SELECTOR */}
+      {/* STEP 2: SCRIPT-MATCHED AI VISUALS & FOOTAGE */}
       {activeTab === 'broll' && (
         <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
           {/* Scene Selector */}
           <div className="glass-panel" style={{ padding: '18px' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '14px', letterSpacing: '0.5px' }}>
-              Select Scene ({scenes.length})
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {scenes.map((s, idx) => (
-                <div 
-                  key={s.scene_id}
-                  id={`broll-scene-${idx}`}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    background: activeSceneIdx === idx ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.02)',
-                    border: '1px solid',
-                    borderColor: activeSceneIdx === idx ? 'var(--primary)' : 'var(--border-color)',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onClick={() => setActiveSceneIdx(idx)}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
-                    <span>Scene {idx + 1}</span>
-                    <span style={{ color: 'var(--accent-cyan)' }}>{s.role.toUpperCase()}</span>
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {s.narration}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Candidate Footage Cards */}
-          <div>
-            <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-              <div>
-                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#fff' }}>
-                  Stock Footage Candidates for Scene {activeSceneIdx + 1}
-                </h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '2px' }}>
-                  Powered by Scrapling Mixkit CDN: <code style={{ color: 'var(--accent-cyan)' }}>{scenes[activeSceneIdx]?.search_queries?.join(', ') || 'HD motion B-roll'}</code>
-                </p>
-              </div>
-              <span className="status-pill status-ready" style={{ fontSize: '11px' }}>
-                ZERO-KEY SCRAPLING ENGINE
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: 0 }}>
+                Scenes ({scenes.length})
+              </h3>
+              <span className={`status-pill ${visualsStatus?.all_visuals_ready ? 'status-ready' : 'status-rendering'}`} style={{ fontSize: '10px' }}>
+                {visualsStatus?.matched_scenes_count || 0}/{scenes.length} Matched
               </span>
             </div>
 
-            {/* Script context banner */}
-            <div style={{ 
-              background: 'rgba(99, 102, 241, 0.08)', 
-              border: '1px solid rgba(99, 102, 241, 0.25)', 
-              borderRadius: '12px', 
-              padding: '14px 18px', 
-              marginBottom: '16px' 
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
-                  Scene {activeSceneIdx + 1} Spoken Script Context
-                </span>
-                <span className="status-pill status-ready" style={{ fontSize: '10px' }}>
-                  {candidates.length} B-ROLL CANDIDATES FOUND
-                </span>
-              </div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff', fontStyle: 'italic', marginBottom: '8px' }}>
-                "{scenes[activeSceneIdx]?.narration}"
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <span style={{ color: 'var(--text-dim)' }}>Visual direction:</span>
-                <span style={{ color: 'var(--accent-cyan)' }}>{scenes[activeSceneIdx]?.visual_description}</span>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {scenes.map((s, idx) => {
+                const scVisual = visualsStatus?.scenes?.find(vs => vs.scene_id === s.scene_id);
+                const isMatched = scVisual?.is_ready;
+                return (
+                  <div 
+                    key={s.scene_id}
+                    id={`broll-scene-${idx}`}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      background: activeSceneIdx === idx ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.02)',
+                      border: '1px solid',
+                      borderColor: activeSceneIdx === idx ? 'var(--primary)' : 'var(--border-color)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onClick={() => setActiveSceneIdx(idx)}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontWeight: 700 }}>
+                      <span style={{ color: activeSceneIdx === idx ? '#fff' : 'var(--text-muted)' }}>
+                        Scene {idx + 1} • {s.role.toUpperCase()}
+                      </span>
+                      {isMatched ? (
+                        <span style={{ fontSize: '10px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Check size={10} /> Matched
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '10px', background: 'rgba(234, 179, 8, 0.2)', color: '#facc15', padding: '2px 6px', borderRadius: '4px' }}>
+                          ⏳ Needs Image
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.narration}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Custom search & filter bar */}
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (brollSearchQuery.trim()) {
-                  fetchCandidatesForScene(activeSceneIdx, brollSearchQuery.trim());
-                }
-              }}
-              style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}
-            >
-              <div style={{ position: 'relative', flex: 1 }}>
-                <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
-                <input 
-                  type="text"
-                  id="broll-search-input"
-                  className="form-control"
-                  style={{ paddingLeft: '40px', background: 'rgba(15, 23, 42, 0.6)' }}
-                  placeholder="Type custom keywords to fetch more relevant clips (e.g. computer chip, skyline, stock market, robot)..."
-                  value={brollSearchQuery}
-                  onChange={(e) => setBrollSearchQuery(e.target.value)}
-                />
-              </div>
-              <button 
-                id="btn-search-broll"
-                type="submit" 
+            {/* Quick Batch Generate in sidebar */}
+            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+              <button
+                id="btn-batch-generate-sidebar"
                 className="btn btn-primary"
-                style={{ padding: '0 18px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                disabled={loadingCandidates}
+                style={{ width: '100%', fontSize: '12px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                onClick={() => handleGenerateAllMatchingVisuals(false)}
+                disabled={generatingVisuals}
               >
-                <Search size={14} />
-                <span>Search Footage</span>
+                {generatingVisuals ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" />
+                    <span>Generating Visuals...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wand2 size={13} />
+                    <span>Generate All Images</span>
+                  </>
+                )}
               </button>
-              {brollSearchQuery && (
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    setBrollSearchQuery('');
-                    fetchCandidatesForScene(activeSceneIdx);
-                  }}
-                  title="Reset to script keywords"
-                >
-                  Reset
-                </button>
-              )}
-            </form>
+            </div>
+          </div>
 
-            {loadingCandidates ? (
-              <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <RefreshCw size={28} className="animate-spin" style={{ margin: '0 auto 12px' }} />
-                <div>Crawling Mixkit & Coverr video CDNs for verified HD footage...</div>
+          {/* Main Visuals Studio Area */}
+          <div>
+            {/* Hero AI Script-to-Image Matching Banner */}
+            <div className="glass-panel" style={{ padding: '22px', marginBottom: '20px', border: '1px solid rgba(99, 102, 241, 0.35)', background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.8))' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '14px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <Wand2 size={18} color="#06b6d4" />
+                    <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', margin: 0 }}>
+                      AI Script-to-Image Matching (FLUX.1-schnell)
+                    </h2>
+                    <span className="status-pill status-ready" style={{ fontSize: '10px' }}>
+                      {project.visual_style.toUpperCase()}
+                    </span>
+                  </div>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>
+                    Creates high-resolution images tailored directly to each scene's script narration & visual direction, then animates them to 30fps Ken Burns motion clips before output rendering.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <button
+                    id="btn-generate-all-flux"
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 0 18px rgba(99, 102, 241, 0.4)' }}
+                    onClick={() => handleGenerateAllMatchingVisuals(false)}
+                    disabled={generatingVisuals}
+                  >
+                    {generatingVisuals ? (
+                      <>
+                        <RefreshCw size={15} className="animate-spin" />
+                        <span>Synthesizing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={15} />
+                        <span>✨ Generate All Matching Images</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    id="btn-force-regenerate-all"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleGenerateAllMatchingVisuals(true)}
+                    disabled={generatingVisuals}
+                    title="Force recreate all scene images from scratch"
+                  >
+                    <RefreshCw size={13} />
+                    <span>Force Regenerate</span>
+                  </button>
+                </div>
               </div>
-            ) : (
-              <div className="broll-grid">
-                {candidates.map((cand) => {
-                  const isSelected = scenes[activeSceneIdx]?.selected_asset_id === cand.id;
-                  return (
-                    <div 
-                      key={cand.id} 
-                      className={`broll-card ${isSelected ? 'selected' : ''}`}
-                    >
-                      <div className="broll-thumb-container">
-                        {cand.preview_url ? (
-                          <img src={cand.preview_url} alt="thumbnail" className="broll-thumb-img" />
+
+              {generatingVisuals && (
+                <div style={{ marginTop: '14px', padding: '12px 16px', background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: '8px', fontSize: '12px', color: '#67e8f9', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <RefreshCw size={16} className="animate-spin" color="#06b6d4" />
+                  <span>{visualsProgress || 'Processing FLUX generation and Ken Burns video animation...'}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Active Scene Script-Matching Spotlight Card */}
+            {(() => {
+              const curScene = scenes[activeSceneIdx];
+              const curVisual = visualsStatus?.scenes?.find(vs => vs.scene_id === curScene?.scene_id);
+              const isSceneMatched = curVisual?.is_ready;
+
+              return (
+                <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '16px', fontWeight: 800, color: '#fff' }}>
+                        Scene {activeSceneIdx + 1} Visual Direction
+                      </span>
+                      <span className="status-pill status-ready" style={{ fontSize: '10px' }}>
+                        {curScene?.role.toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      {isSceneMatched ? (
+                        <span style={{ fontSize: '12px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '4px 10px', borderRadius: '6px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <CheckCircle2 size={14} />
+                          <span>AI Visual Matched & Ready</span>
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '12px', background: 'rgba(234, 179, 8, 0.2)', color: '#facc15', padding: '4px 10px', borderRadius: '6px', fontWeight: 600 }}>
+                          ⚠️ Image Missing
+                        </span>
+                      )}
+
+                      <button
+                        id={`btn-generate-scene-${activeSceneIdx}`}
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => handleGenerateSingleVisual(curScene.scene_id)}
+                        disabled={generatingSceneId === curScene.scene_id || generatingVisuals}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        {generatingSceneId === curScene.scene_id ? (
+                          <>
+                            <RefreshCw size={13} className="animate-spin" />
+                            <span>Generating...</span>
+                          </>
                         ) : (
-                          <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                            <Film size={36} color="#6366f1" />
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>Direct Video Stream</span>
-                          </div>
+                          <>
+                            <Sparkles size={13} color="#06b6d4" />
+                            <span>{isSceneMatched ? 'Regenerate Scene' : 'Generate Image'}</span>
+                          </>
                         )}
-                        <div className="broll-badge-overlay">
-                          <span className="broll-badge" style={{ textTransform: 'uppercase' }}>
-                            {cand.provider}
-                          </span>
-                          <span className="broll-badge">
-                            {cand.orientation}
-                          </span>
-                        </div>
-                        <div style={{ position: 'absolute', bottom: '10px', right: '10px' }}>
-                          <span className="broll-badge" style={{ background: 'rgba(16, 185, 129, 0.85)', color: '#000', fontWeight: 700 }}>
-                            {Math.round(cand.relevance_score * 100)}% Match
-                          </span>
-                        </div>
-                      </div>
+                      </button>
+                    </div>
+                  </div>
 
-                      <div style={{ padding: '16px' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>
-                          {cand.creator || 'Commercial Free Stock'}
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '2px' }}>
-                          {cand.license_type}
-                        </div>
+                  {/* Spoken Script & AI Prompt Details */}
+                  <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 700, marginBottom: '6px' }}>
+                      Spoken Narration ({curScene?.actual_duration_seconds || curScene?.estimated_duration_seconds}s)
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#fff', fontStyle: 'italic', marginBottom: '12px' }}>
+                      "{curScene?.narration}"
+                    </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px' }}>
-                          <span className="status-pill status-ready" style={{ fontSize: '10px' }}>
-                            VERIFIED CC0
-                          </span>
-                          <button 
-                            className={`btn btn-sm ${isSelected ? 'btn-success' : 'btn-primary'}`}
-                            onClick={async () => {
-                              const updated = [...scenes];
-                              updated[activeSceneIdx].selected_asset_id = cand.id;
-                              setScenes(updated);
-                              try {
-                                await api.selectSceneAsset(project.id, scenes[activeSceneIdx].scene_id, cand.id, cand.download_url);
-                              } catch (e) {
-                                console.error('Error saving asset selection:', e);
-                              }
-                            }}
+                    <div style={{ fontSize: '11px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 700, marginBottom: '6px' }}>
+                      Script-Matched Visual Direction & AI Prompt
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                      {curVisual?.prompt || curScene?.visual_description}
+                    </div>
+                  </div>
+
+                  {/* Media Preview Stage */}
+                  {isSceneMatched ? (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                          Previewing: <strong style={{ color: '#fff' }}>{showMotionVideo ? '30fps Ken Burns Video Clip' : 'Static FLUX AI Image'}</strong>
+                        </span>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            className={`btn btn-sm ${!showMotionVideo ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => setShowMotionVideo(false)}
                           >
-                            {isSelected ? (
-                              <>
-                                <Check size={14} />
-                                <span>Approved</span>
-                              </>
-                            ) : (
-                              <span>Select Clip</span>
-                            )}
+                            <ImageIcon size={13} />
+                            <span>Static Image</span>
+                          </button>
+                          <button
+                            className={`btn btn-sm ${showMotionVideo ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => setShowMotionVideo(true)}
+                            disabled={!curVisual?.motion_clip_url}
+                          >
+                            <VideoIcon size={13} />
+                            <span>Animated Video</span>
                           </button>
                         </div>
                       </div>
+
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        background: '#090d16', 
+                        borderRadius: '12px', 
+                        overflow: 'hidden', 
+                        padding: '16px',
+                        border: '1px solid rgba(255, 255, 255, 0.08)' 
+                      }}>
+                        {showMotionVideo && curVisual?.motion_clip_url ? (
+                          <video
+                            key={curVisual.motion_clip_url}
+                            controls
+                            autoPlay
+                            loop
+                            style={{ maxHeight: '420px', borderRadius: '8px', maxWidth: '100%', boxShadow: '0 8px 30px rgba(0,0,0,0.6)' }}
+                            src={curVisual.motion_clip_url}
+                          />
+                        ) : (
+                          <img
+                            src={curVisual?.image_url}
+                            alt="FLUX Scene Visual"
+                            style={{ maxHeight: '420px', borderRadius: '8px', maxWidth: '100%', objectFit: 'contain', boxShadow: '0 8px 30px rgba(0,0,0,0.6)' }}
+                          />
+                        )}
+                      </div>
                     </div>
-                  );
-                })}
+                  ) : (
+                    <div style={{ 
+                      padding: '48px 24px', 
+                      textAlign: 'center', 
+                      background: 'rgba(15, 23, 42, 0.5)', 
+                      borderRadius: '12px', 
+                      border: '2px dashed rgba(99, 102, 241, 0.3)' 
+                    }}>
+                      <ImageIcon size={44} color="#6366f1" style={{ margin: '0 auto 12px' }} />
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>
+                        No Matching Image Created Yet for Scene {activeSceneIdx + 1}
+                      </div>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '13px', maxWidth: '460px', margin: '0 auto 18px' }}>
+                        Generate a custom visual image crafted directly from this scene's script using Cloudflare FLUX.1-schnell before rendering the final output video.
+                      </p>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => handleGenerateSingleVisual(curScene.scene_id)}
+                        disabled={generatingSceneId === curScene.scene_id || generatingVisuals}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        <Sparkles size={15} />
+                        <span>Generate Scene {activeSceneIdx + 1} Image</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Optional Stock Library Collapsible Accordion */}
+            <div className="glass-panel" style={{ padding: '18px', marginTop: '20px' }}>
+              <div 
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                onClick={() => setShowStockAccordion(!showStockAccordion)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Film size={16} color="var(--accent-cyan)" />
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#fff' }}>
+                    Optional: Browse External Stock Footage (Mixkit B-Roll)
+                  </span>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  {showStockAccordion ? '▲ Hide Stock Footage' : '▼ Show Stock Footage Candidates'}
+                </span>
               </div>
-            )}
+
+              {showStockAccordion && (
+                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                  {/* Custom search & filter bar */}
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (brollSearchQuery.trim()) {
+                        fetchCandidatesForScene(activeSceneIdx, brollSearchQuery.trim());
+                      }
+                    }}
+                    style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}
+                  >
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+                      <input 
+                        type="text"
+                        id="broll-search-input"
+                        className="form-control"
+                        style={{ paddingLeft: '40px', background: 'rgba(15, 23, 42, 0.6)' }}
+                        placeholder="Type custom keywords to fetch more relevant clips (e.g. computer chip, skyline, stock market, robot)..."
+                        value={brollSearchQuery}
+                        onChange={(e) => setBrollSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <button 
+                      id="btn-search-broll"
+                      type="submit" 
+                      className="btn btn-primary"
+                      style={{ padding: '0 18px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                      disabled={loadingCandidates}
+                    >
+                      <Search size={14} />
+                      <span>Search Footage</span>
+                    </button>
+                    {brollSearchQuery && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          setBrollSearchQuery('');
+                          fetchCandidatesForScene(activeSceneIdx);
+                        }}
+                        title="Reset to script keywords"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </form>
+
+                  {loadingCandidates ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 10px' }} />
+                      <div>Searching CC0 stock clips...</div>
+                    </div>
+                  ) : (
+                    <div className="broll-grid">
+                      {candidates.map((cand) => {
+                        const isSelected = scenes[activeSceneIdx]?.selected_asset_id === cand.id;
+                        return (
+                          <div 
+                            key={cand.id} 
+                            className={`broll-card ${isSelected ? 'selected' : ''}`}
+                          >
+                            <div className="broll-thumb-container">
+                              {cand.preview_url ? (
+                                <img src={cand.preview_url} alt="thumbnail" className="broll-thumb-img" />
+                              ) : (
+                                <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Film size={36} color="#6366f1" />
+                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>Direct Video Stream</span>
+                                </div>
+                              )}
+                              <div className="broll-badge-overlay">
+                                <span className="broll-badge" style={{ textTransform: 'uppercase' }}>
+                                  {cand.provider}
+                                </span>
+                              </div>
+                              <div style={{ position: 'absolute', bottom: '10px', right: '10px' }}>
+                                <span className="broll-badge" style={{ background: 'rgba(16, 185, 129, 0.85)', color: '#000', fontWeight: 700 }}>
+                                  {Math.round(cand.relevance_score * 100)}% Match
+                                </span>
+                              </div>
+                            </div>
+
+                            <div style={{ padding: '14px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>
+                                {cand.creator || 'Commercial Free Stock'}
+                              </div>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                                <span className="status-pill status-ready" style={{ fontSize: '10px' }}>
+                                  VERIFIED CC0
+                                </span>
+                                <button 
+                                  className={`btn btn-sm ${isSelected ? 'btn-success' : 'btn-secondary'}`}
+                                  onClick={async () => {
+                                    const updated = [...scenes];
+                                    updated[activeSceneIdx].selected_asset_id = cand.id;
+                                    setScenes(updated);
+                                    try {
+                                      await api.selectSceneAsset(project.id, scenes[activeSceneIdx].scene_id, cand.id, cand.download_url);
+                                      await fetchVisualsStatus();
+                                    } catch (e) {
+                                      console.error('Error saving asset selection:', e);
+                                    }
+                                  }}
+                                >
+                                  {isSelected ? (
+                                    <>
+                                      <Check size={14} />
+                                      <span>Selected</span>
+                                    </>
+                                  ) : (
+                                    <span>Use Stock Clip</span>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -854,6 +1180,100 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, onB
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px', fontFamily: 'var(--font-mono)' }}>
             Job ID: {activeJob?.id || 'Pending initialization'}
           </p>
+
+          {/* Workflow Gate: Script-to-Image Matching Verification */}
+          <div style={{ 
+            background: visualsStatus?.all_visuals_ready ? 'rgba(16, 185, 129, 0.08)' : 'rgba(245, 158, 11, 0.08)', 
+            border: `1px solid ${visualsStatus?.all_visuals_ready ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.35)'}`, 
+            borderRadius: '14px', 
+            padding: '20px', 
+            marginBottom: '26px' 
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  {visualsStatus?.all_visuals_ready ? (
+                    <CheckCircle2 size={18} color="#34d399" />
+                  ) : (
+                    <AlertCircle size={18} color="#f59e0b" />
+                  )}
+                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#fff', margin: 0 }}>
+                    {visualsStatus?.all_visuals_ready 
+                      ? 'Workflow Gate Passed: All Scene Visuals Matched' 
+                      : `Workflow Gate: Missing Script-Matching Images (${scenes.length - (visualsStatus?.matched_scenes_count || 0)} scenes)`}
+                  </h3>
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
+                  {visualsStatus?.all_visuals_ready 
+                    ? `Every scene has verified script-matching AI visuals created with FLUX.1-schnell and animated to 30fps Ken Burns motion clips.`
+                    : `CreatorFlow requires creating images matching each scene's script before generating the final video output.`}
+                </p>
+              </div>
+
+              {visualsStatus?.all_visuals_ready ? (
+                <button
+                  id="btn-create-final-output"
+                  className="btn btn-primary"
+                  onClick={handleStartRender}
+                  disabled={isRendering}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <Sparkles size={14} />
+                  <span>{isRendering ? 'Rendering Output...' : '🚀 Create Final Output Video'}</span>
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    id="btn-match-and-create-output"
+                    className="btn btn-primary"
+                    onClick={handleStartRender}
+                    disabled={isRendering || generatingVisuals}
+                    style={{ 
+                      background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                      boxShadow: '0 0 16px rgba(245, 158, 11, 0.4)',
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px' 
+                    }}
+                  >
+                    {generatingVisuals ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" />
+                        <span>Creating Images...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={14} />
+                        <span>✨ Create Matching Images & Output</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setActiveTab('broll')}
+                  >
+                    <span>Review in Step 2</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Checklist summary */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.06)', fontSize: '11px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#cbd5e1' }}>
+                <Check size={13} color="#34d399" />
+                <span>Script: {scenes.length} Scenes Approved</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#cbd5e1' }}>
+                <Check size={13} color="#34d399" />
+                <span>Voice: Neural TTS + Ducking</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: visualsStatus?.all_visuals_ready ? '#cbd5e1' : '#facc15' }}>
+                {visualsStatus?.all_visuals_ready ? <Check size={13} color="#34d399" /> : <AlertCircle size={13} color="#facc15" />}
+                <span>Visuals: {visualsStatus?.matched_scenes_count || 0}/{scenes.length} Matched</span>
+              </div>
+            </div>
+          </div>
 
           <div style={{ marginBottom: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '8px' }}>

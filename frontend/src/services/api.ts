@@ -103,6 +103,32 @@ export interface ProjectOutputInfo {
   files: ProjectOutputFile[];
 }
 
+export interface SceneVisualStatus {
+  scene_id: string;
+  order: number;
+  role: string;
+  narration: string;
+  visual_description: string;
+  prompt: string;
+  has_matching_image: boolean;
+  has_motion_clip: boolean;
+  image_url?: string;
+  motion_clip_url?: string;
+  selected_asset_id?: string;
+  is_ready: boolean;
+}
+
+export interface ProjectVisualsStatus {
+  project_id: string;
+  project_title: string;
+  visual_style: string;
+  aspect_ratio: string;
+  total_scenes: number;
+  matched_scenes_count: number;
+  all_visuals_ready: boolean;
+  scenes: SceneVisualStatus[];
+}
+
 export const api = {
   async getProjects(): Promise<Project[]> {
     const res = await fetch('/api/projects');
@@ -113,6 +139,38 @@ export const api = {
   async getProject(id: string): Promise<Project> {
     const res = await fetch(`/api/projects/${id}`);
     if (!res.ok) throw new Error('Failed to fetch project details');
+    return res.json();
+  },
+
+  async getProjectVisualsStatus(projectId: string): Promise<ProjectVisualsStatus> {
+    const res = await fetch(`/api/projects/${projectId}/visuals-status`);
+    if (!res.ok) throw new Error('Failed to fetch visual status');
+    return res.json();
+  },
+
+  async generateMatchingVisuals(projectId: string, options?: { force_regenerate?: boolean; steps?: number; motion_preset?: string; scene_ids?: string[] }): Promise<ProjectVisualsStatus> {
+    const res = await fetch(`/api/projects/${projectId}/generate-matching-images`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options || {}),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to generate matching visuals' }));
+      throw new Error(err.detail || 'Failed to generate matching visuals');
+    }
+    return res.json();
+  },
+
+  async generateSingleSceneMatchingVisual(projectId: string, sceneId: string, options?: { prompt?: string; steps?: number; motion_preset?: string }): Promise<any> {
+    const res = await fetch(`/api/projects/${projectId}/scenes/${sceneId}/generate-matching-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options || {}),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to generate visual for scene' }));
+      throw new Error(err.detail || 'Failed to generate visual for scene');
+    }
     return res.json();
   },
 
@@ -369,8 +427,80 @@ export const api = {
     const res = await fetch('/api/renders');
     if (!res.ok) throw new Error('Failed to fetch successful renders');
     return res.json();
+  },
+
+  async getShortsClips(params?: {
+    clip_type?: string;
+    project_id?: string;
+    aspect_ratio?: string;
+    search?: string;
+    sort_by?: string;
+  }): Promise<ShortsClipsResponse> {
+    const query = new URLSearchParams();
+    if (params?.clip_type) query.append('clip_type', params.clip_type);
+    if (params?.project_id) query.append('project_id', params.project_id);
+    if (params?.aspect_ratio) query.append('aspect_ratio', params.aspect_ratio);
+    if (params?.search) query.append('search', params.search);
+    if (params?.sort_by) query.append('sort_by', params.sort_by);
+    query.append('_t', Date.now().toString());
+    const res = await fetch(`/api/clips?${query.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch AI shorts clips');
+    return res.json();
+  },
+
+  async openClipsFolder(relativePath?: string): Promise<{ success: boolean; path: string; error?: string }> {
+    const res = await fetch('/api/clips/open-folder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ relative_path: relativePath })
+    });
+    if (!res.ok) throw new Error('Failed to open clips folder');
+    return res.json();
   }
 };
+
+export interface ShortsClip {
+  id: string;
+  filename: string;
+  title: string;
+  clip_type: 'scene_segment' | 'final_short' | 'stock_broll' | 'video_bed';
+  clip_type_label: string;
+  project_id?: string;
+  project_title?: string;
+  scene_order?: number;
+  scene_role?: string;
+  narration?: string;
+  visual_description?: string;
+  aspect_ratio: string;
+  resolution: string;
+  duration_seconds: number;
+  duration_formatted: string;
+  file_size_bytes: number;
+  file_size_formatted: string;
+  created_at: string;
+  relative_path: string;
+  stream_url: string;
+  download_url: string;
+  tags: string[];
+}
+
+export interface ShortsClipsStats {
+  total_clips: number;
+  scene_segments_count: number;
+  final_shorts_count: number;
+  stock_broll_count: number;
+  video_bed_count: number;
+  total_storage_bytes: number;
+  total_storage_formatted: string;
+  projects_count: number;
+}
+
+export interface ShortsClipsResponse {
+  total_clips: number;
+  count: number;
+  stats: ShortsClipsStats;
+  clips: ShortsClip[];
+}
 
 export interface SuccessfulRender {
   id: string;

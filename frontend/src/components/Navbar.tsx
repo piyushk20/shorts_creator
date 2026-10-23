@@ -2,9 +2,10 @@ import React from 'react';
 import { Film, PlusCircle, Settings, FileText, Scissors, Share2, Sparkles, Video } from 'lucide-react';
 
 interface NavbarProps {
-  currentView?: 'studio' | 'renders';
+  currentView?: 'studio' | 'renders' | 'clips';
   rendersCount?: number;
-  onNavigate?: (view: 'studio' | 'renders') => void;
+  clipsCount?: number;
+  onNavigate?: (view: 'studio' | 'renders' | 'clips') => void;
   onOpenCreate: (mode?: 'trends' | 'idea' | 'script' | 'vox') => void;
   onOpenSettings: (tab?: 'social' | 'providers' | 'engine') => void;
   onGoHome: () => void;
@@ -13,6 +14,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ 
   currentView = 'studio',
   rendersCount = 0,
+  clipsCount = 0,
   onNavigate,
   onOpenCreate, 
   onOpenSettings, 
@@ -27,7 +29,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="brand-badge">STUDIO AI</span>
         </div>
 
-        {/* Studio & Renders Primary Navigation Tabs */}
+        {/* Studio, Shorts Clips & Renders Primary Navigation Tabs */}
         {onNavigate && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '28px' }}>
             <button
@@ -50,6 +52,40 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Sparkles size={14} color={currentView === 'studio' ? '#818cf8' : 'var(--text-dim)'} />
               <span>Studio</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('clips')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                background: currentView === 'clips' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                color: currentView === 'clips' ? '#f472b6' : 'var(--text-dim)',
+                border: currentView === 'clips' ? '1px solid rgba(236, 72, 153, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Scissors size={14} color={currentView === 'clips' ? '#ec4899' : 'var(--text-dim)'} />
+              <span>Shorts Clips</span>
+              {clipsCount > 0 && (
+                <span style={{
+                  background: currentView === 'clips' ? '#ec4899' : 'rgba(236, 72, 153, 0.25)',
+                  color: currentView === 'clips' ? '#ffffff' : '#f472b6',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  padding: '1px 7px',
+                  borderRadius: '10px'
+                }}>
+                  {clipsCount}
+                </span>
+              )}
             </button>
 
             <button

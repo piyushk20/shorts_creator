@@ -21,21 +21,25 @@ import { Project, api, TrendingTopic } from '../services/api';
 interface DashboardProps {
   projects: Project[];
   rendersCount?: number;
+  clipsCount?: number;
   onSelectProject: (p: Project) => void;
   onOpenCreate: (initialMode?: 'trends' | 'idea' | 'script' | 'vox') => void;
   onQuickStart: (topic: string) => void;
   onTrendStart: (trend: TrendingTopic, category: string) => void;
   onNavigateToRenders?: () => void;
+  onNavigateToClips?: () => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   projects,
   rendersCount,
+  clipsCount,
   onSelectProject,
   onOpenCreate,
   onQuickStart,
   onTrendStart,
-  onNavigateToRenders
+  onNavigateToRenders,
+  onNavigateToClips
 }) => {
   const [activeDomain, setActiveDomain] = useState<string>('all');
   const [trends, setTrends] = useState<TrendingTopic[]>([]);
@@ -111,7 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* Metrics Banner */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '32px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '16px', marginBottom: '32px' }}>
         <div 
           className="glass-panel glass-panel-hover" 
           style={{ padding: '20px', cursor: onNavigateToRenders ? 'pointer' : 'default', border: onNavigateToRenders ? '1px solid rgba(16, 185, 129, 0.4)' : undefined }}
@@ -129,6 +133,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
           <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'var(--font-heading)', marginTop: '4px', color: '#10b981' }}>
             {rendersCount !== undefined ? rendersCount : projects.length}
+          </div>
+        </div>
+
+        <div 
+          className="glass-panel glass-panel-hover" 
+          style={{ padding: '20px', cursor: onNavigateToClips ? 'pointer' : 'default', border: onNavigateToClips ? '1px solid rgba(236, 72, 153, 0.4)' : undefined }}
+          onClick={onNavigateToClips}
+          title={onNavigateToClips ? "Click to open AI Shorts Clips Gallery" : undefined}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ color: 'var(--text-dim)', fontSize: '13px', fontWeight: 600 }}>SHORTS CLIPS</div>
+            {onNavigateToClips && (
+              <span style={{ fontSize: '11px', color: '#f472b6', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                <span>Gallery</span>
+                <ArrowRight size={12} />
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'var(--font-heading)', marginTop: '4px', color: '#f472b6' }}>
+            {clipsCount !== undefined ? clipsCount : '140+'}
           </div>
         </div>
 

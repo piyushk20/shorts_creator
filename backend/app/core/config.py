@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     RENDERER_BACKEND: str = "hyperframes"
     MAX_CONCURRENT_RENDERS: int = 2
 
+    # Cloudflare Workers AI Settings
+    CLOUDFLARE_ACCOUNT_ID: str = ""
+    CLOUDFLARE_API_TOKEN: str = ""
+    CLOUDFLARE_ALT_TOKEN: str = ""
+
     model_config = {
         "env_file": ".env",
         "extra": "ignore"
